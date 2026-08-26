@@ -1,0 +1,257 @@
+import {
+  pgSchema,
+  serial,
+  integer,
+  text,
+  boolean,
+  timestamp,
+  jsonb,
+  varchar,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+// The Applicant keeps all its tables in a dedicated Postgres schema so it never
+// collides with other apps that may share the same database.
+export const appSchema = pgSchema("applicant");
+const pgTable = appSchema.table;
+
+// ─── users ───────────────────────────────────────────────────────
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: varchar("email", { length: 255 }).notNull(),
+    passwordHash: text("password_hash").notNull(),
+    displayName: varchar("display_name", { length: 120 }),
+    role: varchar("role", { length: 20 }).notNull().default("user"),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    subscriptionTier: varchar("subscription_tier", { length: 20 })
+      .notNull()
+      .default("free"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
+  },
+  (t) => ({
+    emailIdx: uniqueIndex("users_email_idx").on(t.email),
+  }),
+);
+
+// ─── profiles (targeting contexts) ───────────────────────────────
+export const profiles = pgTable(
+  "profiles",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    targetIndustry: varchar("target_industry", { length: 120 }),
+    targetRole: varchar("target_role", { length: 120 }),
+    locationPrefs: jsonb("location_prefs"),
+    isActive: boolean("is_active").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("profiles_user_idx").on(t.userId),
+  }),
+);
+
+// ─── resume_profiles ─────────────────────────────────────────────
+export const resumeProfiles = pgTable(
+  "resume_profiles",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    profileId: integer("profile_id").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    fullName: varchar("full_name", { length: 200 }),
+    email: varchar("email", { length: 255 }),
+    phone: varchar("phone", { length: 50 }),
+    links: jsonb("links"),
+    baseResumeText: text("base_resume_text").notNull().default(""),
+    baseResumeJson: jsonb("base_resume_json"),
+    voiceProfile: text("voice_profile"),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("resume_profiles_user_idx").on(t.userId),
+  }),
+);
+
+// ─── resume_versions ─────────────────────────────────────────────
+export const resumeVersions = pgTable(
+  "resume_versions",
+  {
+    id: serial("id").primaryKey(),
+    resumeProfileId: integer("resume_profile_id")
+      .notNull()
+      .references(() => resumeProfiles.id, { onDelete: "cascade" }),
+    tailoredResumeText: text("tailored_resume_text"),
+    coverLetter: text("cover_letter"),
+    jobRef: varchar("job_ref", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("resume_versions_profile_idx").on(t.resumeProfileId),
+  }),
+);
+
+// ─── companies ───────────────────────────────────────────────────
+export const companies = pgTable(
+  "companies",
+  {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    industry: varchar("industry", { length: 120 }),
+    compAboveMedian: boolean("comp_above_median"),
+    cultureScore: integer("culture_score"),
+    retentionScore: integer("retention_score"),
+    qualityScore: integer("quality_score"),
+    qualityBasis: jsonb("quality_basis"),
+    unrated: boolean("unrated").notNull().default(true),
+  },
+  (t) => ({
+    nameIdx: index("companies_name_idx").on(t.name),
+  }),
+);
+
+// ─── jobs ────────────────────────────────────────────────────────
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    profileId: integer("profile_id").references(() => profiles.id, {
+      onDelete: "cascade",
+    }),
+    companyId: integer("company_id").references(() => companies.id, {
+      onDelete: "set null",
+    }),
+    title: varchar("title", { length: 300 }).notNull(),
+    description: text("description"),
+    sourceName: varchar("source_name", { length: 80 }),
+    sourceUrl: text("source_url"),
+    compensation: jsonb("compensation"),
+    qualityScore: integer("quality_score"),
+    status: varchar("status", { length: 20 }).notNull().default("new"),
+    dedupeHash: varchar("dedupe_hash", { length: 64 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("jobs_user_idx").on(t.userId),
+    dedupeIdx: index("jobs_dedupe_idx").on(t.profileId, t.dedupeHash),
+  }),
+);
+
+// ─── applications ────────────────────────────────────────────────
+export const applications = pgTable(
+  "applications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    profileId: integer("profile_id").references(() => profiles.id, {
+      onDelete: "cascade",
+    }),
+    jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+    companyName: varchar("company_name", { length: 255 }),
+    status: varchar("status", { length: 30 }).notNull().default("applied"),
+    appliedAt: timestamp("applied_at", { withTimezone: true }).defaultNow(),
+    linkedVersionId: integer("linked_version_id").references(
+      () => resumeVersions.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("applications_user_idx").on(t.userId),
+  }),
+);
+
+// ─── subscriptions ───────────────────────────────────────────────
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubId: varchar("stripe_sub_id", { length: 255 }),
+  plan: varchar("plan", { length: 40 }),
+  status: varchar("status", { length: 40 }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+});
+
+// ─── support_requests ────────────────────────────────────────────
+export const supportRequests = pgTable(
+  "support_requests",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    message: text("message").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => ({
+    statusIdx: index("support_status_idx").on(t.status),
+  }),
+);
+
+// ─── notifications ───────────────────────────────────────────────
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 40 }).notNull(),
+    payload: jsonb("payload"),
+    read: boolean("read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("notifications_user_idx").on(t.userId),
+  }),
+);
+
+// ─── scraping_logs ───────────────────────────────────────────────
+export const scrapingLogs = pgTable("scraping_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, {
+    onDelete: "cascade",
+  }),
+  profileId: integer("profile_id").references(() => profiles.id, {
+    onDelete: "cascade",
+  }),
+  sourceName: varchar("source_name", { length: 80 }),
+  count: integer("count").notNull().default(0),
+  status: varchar("status", { length: 20 }).notNull(),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// ─── Types ───────────────────────────────────────────────────────
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type Profile = typeof profiles.$inferSelect;
+export type InsertProfile = typeof profiles.$inferInsert;
+export type ResumeProfile = typeof resumeProfiles.$inferSelect;
+export type ResumeVersion = typeof resumeVersions.$inferSelect;
+export type Company = typeof companies.$inferSelect;
+export type Job = typeof jobs.$inferSelect;
+export type Application = typeof applications.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type SupportRequest = typeof supportRequests.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;

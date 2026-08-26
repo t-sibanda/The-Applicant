@@ -1,0 +1,52 @@
+# Render Blueprint for The Applicant.
+# In Render: New → Blueprint → connect this repo. Render reads this file and
+# creates the service. Fill secret values in the dashboard (sync: false vars).
+services:
+  - type: web
+    name: the-applicant
+    runtime: node
+    plan: free # change to "starter" for always-on (no cold-start sleeping)
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000 # Render provides PORT; app reads process.env.PORT
+      # ── Secrets: set these in the Render dashboard (never commit them) ──
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: AI_API_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: AI_MODEL
+        value: openai/gpt-oss-120b
+      - key: AI_API_KEY
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: documents
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_BASIC
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: JOBS_REMOTIVE_ENABLED
+        value: "true"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
