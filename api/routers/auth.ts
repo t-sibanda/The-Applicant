@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, authedProcedure } from "../trpc";
+import { effectivePlan } from "../lib/entitlements";
 import {
   findUserByEmail,
   createUser,
@@ -121,6 +122,12 @@ export const authRouter = router({
   me: publicProcedure.query(({ ctx }) => {
     if (!ctx.user) return null;
     return publicUser(ctx.user);
+  }),
+
+  // The signed-in user's effective access (tier + active grants).
+  myAccess: authedProcedure.query(async ({ ctx }) => {
+    const plan = await effectivePlan(ctx.user);
+    return { tier: ctx.user.subscriptionTier, plan };
   }),
 
   logout: authedProcedure.mutation(({ ctx }) => {

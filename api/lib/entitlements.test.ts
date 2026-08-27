@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { entitlementsOf, requireAIEntitlement, tierOf } from "./entitlements";
+import { entitlementsOf, tierOf } from "./entitlements";
 import type { User } from "../db/schema";
 
 function user(tier: string): User {
@@ -16,16 +16,23 @@ function user(tier: string): User {
   } as User;
 }
 
-describe("entitlements", () => {
-  it("free tier does not include the AI optimizer", () => {
+describe("tier entitlements (base plan, pre-grant)", () => {
+  it("free tier does not include the AI optimizer or auto-apply", () => {
     expect(entitlementsOf(user("free")).aiOptimizer).toBe(false);
-    expect(() => requireAIEntitlement(user("free"))).toThrow();
+    expect(entitlementsOf(user("free")).autoApply).toBe(false);
   });
 
-  it("basic and pro tiers include the AI optimizer", () => {
-    expect(entitlementsOf(user("basic")).aiOptimizer).toBe(true);
-    expect(entitlementsOf(user("pro")).aiOptimizer).toBe(true);
-    expect(() => requireAIEntitlement(user("pro"))).not.toThrow();
+  it("basic includes AI + semi-apply but not auto-apply", () => {
+    const basic = entitlementsOf(user("basic"));
+    expect(basic.aiOptimizer).toBe(true);
+    expect(basic.semiApply).toBe(true);
+    expect(basic.autoApply).toBe(false);
+  });
+
+  it("pro includes auto-apply with a daily cap", () => {
+    const pro = entitlementsOf(user("pro"));
+    expect(pro.autoApply).toBe(true);
+    expect(pro.dailyAutoApplyCap).toBeGreaterThan(0);
   });
 
   it("profile limits scale by tier", () => {

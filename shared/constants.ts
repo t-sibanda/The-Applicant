@@ -42,12 +42,47 @@ export const ApplicationStatus = {
 export type ApplicationStatusType =
   (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 
-// Feature entitlements per tier (used for plan gating).
-export const TierEntitlements: Record<
-  SubscriptionTierType,
-  { aiOptimizer: boolean; jobSearch: boolean; maxProfiles: number }
-> = {
-  free: { aiOptimizer: false, jobSearch: true, maxProfiles: 1 },
-  basic: { aiOptimizer: true, jobSearch: true, maxProfiles: 3 },
-  pro: { aiOptimizer: true, jobSearch: true, maxProfiles: 25 },
+// The full feature catalog. Boolean features + a few numeric caps.
+export const Features = {
+  AI_OPTIMIZER: "aiOptimizer",
+  JOB_SEARCH: "jobSearch",
+  SEMI_APPLY: "semiApply", // review-mode assisted apply
+  AUTO_APPLY: "autoApply", // bulk prepare drafts across top matches
+  PORTFOLIO: "portfolio",
+  CAREER: "career",
+  LEARNING: "learning",
+  MAX_PROFILES: "maxProfiles", // numeric
+  DAILY_AUTO_APPLY_CAP: "dailyAutoApplyCap", // numeric
+} as const;
+export type FeatureKey = (typeof Features)[keyof typeof Features];
+
+export type TierPlan = {
+  aiOptimizer: boolean;
+  jobSearch: boolean;
+  semiApply: boolean;
+  autoApply: boolean;
+  portfolio: boolean;
+  career: boolean;
+  learning: boolean;
+  maxProfiles: number;
+  dailyAutoApplyCap: number;
+};
+
+// Per-tier defaults. Admin grants can override any of these per user.
+export const TierEntitlements: Record<SubscriptionTierType, TierPlan> = {
+  free: {
+    aiOptimizer: false, jobSearch: true, semiApply: false, autoApply: false,
+    portfolio: false, career: false, learning: true,
+    maxProfiles: 1, dailyAutoApplyCap: 0,
+  },
+  basic: {
+    aiOptimizer: true, jobSearch: true, semiApply: true, autoApply: false,
+    portfolio: true, career: true, learning: true,
+    maxProfiles: 3, dailyAutoApplyCap: 0,
+  },
+  pro: {
+    aiOptimizer: true, jobSearch: true, semiApply: true, autoApply: true,
+    portfolio: true, career: true, learning: true,
+    maxProfiles: 25, dailyAutoApplyCap: 20,
+  },
 };

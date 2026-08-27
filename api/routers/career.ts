@@ -16,7 +16,7 @@ export const careerRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const db = getDb();
       const resume = (await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)).at(0);
       const profile = (await db.select().from(profiles).where(eq(profiles.userId, ctx.user.id)).limit(1)).at(0);

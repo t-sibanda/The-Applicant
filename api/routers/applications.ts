@@ -7,7 +7,7 @@ import { getActiveProfile } from "./profiles";
 import { ApplicationStatus } from "../../shared/constants";
 import { chatCompletion } from "../services/ai";
 import { tailorResumeMessages, coverLetterMessages } from "../services/prompts";
-import { requireAIEntitlement } from "../lib/entitlements";
+import { requireFeature, effectivePlan } from "../lib/entitlements";
 import { TRPCError } from "@trpc/server";
 
 const statusEnum = z.enum([
@@ -60,7 +60,7 @@ export const applicationsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireFeature(ctx.user, "semiApply", "Assisted apply");
       const db = getDb();
       const profile = await getActiveProfile(ctx.user.id);
       const resume = (
@@ -91,6 +91,65 @@ export const applicationsRouter = router({
         })
         .returning();
       return rows[0];
+    }),
+
+  // Auto-apply: bulk-prepare review-ready drafts for the top-matched NEW jobs,
+  // respecting the user's daily cap. Human-in-the-loop (no headless submission).
+  autoApply: authedProcedure
+    .input(z.object({ count: z.number().min(1).max(20).optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      await requireFeature(ctx.user, "autoApply", "Auto-apply");
+      const plan = await effectivePlan(ctx.user);
+      const cap = plan.dailyAutoApplyCap;
+      if (cap <= 0) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Auto-apply is not enabled on your plan." });
+      }
+
+      const db = getDb();
+      const profile = await getActiveProfile(ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Activate a profile first." });
+
+      const resume = (await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)).at(0);
+      if (!resume?.baseResumeText) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Add your resume first." });
+
+      // Count how many drafts were already prepared today (cap enforcement).
+      const since = new Date(); since.setHours(0, 0, 0, 0);
+      const todays = (await db.select().from(applications).where(
+        and(eq(applications.userId, ctx.user.id), eq(applications.status, ApplicationStatus.DRAFT)),
+      )).filter((a) => (a.createdAt ?? new Date(0)) >= since).length;
+
+      const remaining = Math.max(0, cap - todays);
+      const want = Math.min(input?.count ?? 5, remaining);
+      if (want <= 0) {
+        return { prepared: 0, capReached: true, cap };
+      }
+
+      // Pick top-matched NEW jobs with a description.
+      const candidates = (await db.select().from(jobs).where(
+        and(eq(jobs.userId, ctx.user.id), eq(jobs.profileId, profile.id), eq(jobs.status, "new")),
+      ))
+        .filter((j) => !!j.description)
+        .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
+        .slice(0, want);
+
+      const voice = resume.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
+      let prepared = 0;
+      for (const j of candidates) {
+        const [resumeRes, coverRes] = await Promise.all([
+          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description! }), { maxTokens: 3000 }),
+          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description!, companyName: j.title, jobTitle: j.title }), { maxTokens: 2000 }),
+        ]);
+        await db.insert(applications).values({
+          userId: ctx.user.id, profileId: profile.id, jobId: j.id,
+          companyName: j.title, jobTitle: j.title, jobUrl: j.sourceUrl,
+          status: ApplicationStatus.DRAFT,
+          draftResume: resumeRes.success ? resumeRes.content : null,
+          draftCoverLetter: coverRes.success ? coverRes.content : null,
+        });
+        await db.update(jobs).set({ status: "saved" }).where(eq(jobs.id, j.id));
+        prepared++;
+      }
+      return { prepared, capReached: prepared >= remaining, cap };
     }),
 
   updateDraft: authedProcedure

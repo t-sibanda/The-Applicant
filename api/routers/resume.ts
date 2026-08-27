@@ -148,7 +148,7 @@ export const resumeRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const owned = await getDb()
         .select()
         .from(resumeProfiles)

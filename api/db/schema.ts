@@ -341,10 +341,29 @@ export const learningItems = pgTable(
   (t) => ({ userIdx: index("learning_user_idx").on(t.userId) }),
 );
 
+// ─── feature_grants (per-user admin overrides, optional expiry) ─
+export const featureGrants = pgTable(
+  "feature_grants",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    feature: varchar("feature", { length: 60 }).notNull(),
+    // value stored as text: "true"/"false" for booleans, or a number as string.
+    value: varchar("value", { length: 40 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    grantedBy: integer("granted_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ userIdx: index("feature_grants_user_idx").on(t.userId) }),
+);
+
 // ─── Types ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type LearningItem = typeof learningItems.$inferSelect;
+export type FeatureGrant = typeof featureGrants.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type SavedItem = typeof savedItems.$inferSelect;

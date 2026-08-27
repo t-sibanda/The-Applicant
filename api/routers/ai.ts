@@ -42,7 +42,7 @@ export const aiRouter = router({
   parseJob: authedProcedure
     .input(z.object({ description: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const res = await chatCompletion(parseJobMessages(input.description));
       if (!res.success || !res.content)
         return { success: false as const, parsed: null, error: res.error };
@@ -67,7 +67,7 @@ export const aiRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(
         tailorResumeMessages({
           baseResume: input.baseResume,
@@ -91,7 +91,7 @@ export const aiRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(
         coverLetterMessages({
           baseResume: input.baseResume,
@@ -112,7 +112,7 @@ export const aiRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
 
       // 1) Deterministic analysis (keyword coverage, format, seniority, hard reqs).
       const det = analyzeAts(input.resumeText, input.jobDescription);
@@ -187,7 +187,7 @@ Return ONLY valid JSON.`,
   analyzeVoice: authedProcedure
     .input(z.object({ samples: z.array(z.string().min(1)).min(1).max(10) }))
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(voiceAnalysisMessages(input.samples));
     }),
 
@@ -200,7 +200,7 @@ Return ONLY valid JSON.`,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(
         interviewQuestionMessages(
           input.companyName,
@@ -213,7 +213,7 @@ Return ONLY valid JSON.`,
   chat: authedProcedure
     .input(chatMessagesInput)
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(input.messages);
     }),
 
@@ -226,7 +226,7 @@ Return ONLY valid JSON.`,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(followUpMessages(input));
     }),
 
@@ -244,7 +244,7 @@ Return ONLY valid JSON.`,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       return chatCompletion(networkingMessages(input));
     }),
 
@@ -257,7 +257,7 @@ Return ONLY valid JSON.`,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const res = await chatCompletion(interviewEvalMessages(input));
       if (!res.success || !res.content) return res;
       const parsed = parseJsonFromAI(res.content);
@@ -276,7 +276,7 @@ Return ONLY valid JSON.`,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const res = await chatCompletion(
         skillGapMessages(input.resume, input.jobDescription),
       );

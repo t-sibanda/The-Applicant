@@ -9,6 +9,7 @@ export default function Profiles() {
   const profiles = trpc.profiles.list.useQuery();
   const resumes = trpc.resume.listProfiles.useQuery();
   const saved = trpc.saved.list.useQuery();
+  const access = trpc.auth.myAccess.useQuery();
   const create = trpc.profiles.create.useMutation();
   const setActive = trpc.profiles.setActive.useMutation();
   const del = trpc.profiles.delete.useMutation();
@@ -83,6 +84,25 @@ export default function Profiles() {
       <p className="page-subtitle mb-5">
         Your job-hunt hub: targeting, resume, voice, and saved links all in one place.
       </p>
+
+      {/* My access — current plan + features */}
+      {access.data && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-slate-700">My access</span>
+            <span className="chip bg-brand-light text-brand capitalize">{access.data.tier} plan</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["aiOptimizer", "AI Optimizer"], ["semiApply", "Assisted apply"], ["autoApply", "Auto-apply"],
+              ["portfolio", "Portfolio"], ["career", "Career Builder"], ["learning", "Learning"],
+            ].map(([k, label]) => {
+              const on = !!(access.data!.plan as any)[k];
+              return <span key={k} className={`chip ${on ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>{on ? "✓" : "–"} {label}</span>;
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Completeness */}
       <div className="card p-4 mb-5">

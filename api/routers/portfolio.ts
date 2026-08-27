@@ -55,7 +55,7 @@ export const portfolioRouter = router({
 
   // AI: generate a headline + about section in the user's voice from their resume.
   generateAbout: authedProcedure.mutation(async ({ ctx }) => {
-    requireAIEntitlement(ctx.user);
+    await requireAIEntitlement(ctx.user);
     const resume = await getDb()
       .select()
       .from(resumeProfiles)

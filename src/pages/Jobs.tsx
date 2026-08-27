@@ -27,6 +27,21 @@ export default function Jobs() {
   const clear = trpc.jobs.clear.useMutation();
   const logApp = trpc.applications.create.useMutation();
   const prepare = trpc.applications.prepare.useMutation();
+  const autoApply = trpc.applications.autoApply.useMutation();
+  const access = trpc.auth.myAccess.useQuery();
+  const canAutoApply = !!(access.data?.plan as any)?.autoApply;
+
+  const runAutoApply = async () => {
+    const t = toast.loading("Auto-preparing applications for your top matches…");
+    try {
+      const res = await autoApply.mutateAsync({ count: 5 });
+      await utils.applications.list.invalidate();
+      await utils.jobs.list.invalidate();
+      toast.success(res.prepared > 0 ? `Prepared ${res.prepared} draft(s) — review them on Applications` : "No eligible jobs (search first, or daily cap reached)", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed", { id: t });
+    }
+  };
 
   const prepareApplication = async (j: any) => {
     if (!j.description) return toast.error("This job has no description to tailor from");
@@ -120,6 +135,11 @@ export default function Jobs() {
         <h1 className="page-title">Jobs</h1>
         {hasActiveProfile && (
           <div className="flex gap-2">
+            {canAutoApply && (
+              <button onClick={runAutoApply} disabled={autoApply.isPending} className="btn-ghost h-10" title="Bulk-prepare drafts for your top matches">
+                {autoApply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Auto-apply
+              </button>
+            )}
             <button onClick={refresh} disabled={search.isPending || clear.isPending} className="btn-ghost h-10" title="Clear and fetch the latest">
               {clear.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
             </button>

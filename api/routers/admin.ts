@@ -1,10 +1,17 @@
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { router, adminProcedure, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { users, supportRequests } from "../db/schema";
-import { UserStatus } from "../../shared/constants";
+import { users, supportRequests, featureGrants } from "../db/schema";
+import { UserStatus, Features } from "../../shared/constants";
+import { effectivePlan } from "../lib/entitlements";
 import { TRPCError } from "@trpc/server";
+
+const featureEnum = z.enum([
+  Features.AI_OPTIMIZER, Features.JOB_SEARCH, Features.SEMI_APPLY,
+  Features.AUTO_APPLY, Features.PORTFOLIO, Features.CAREER, Features.LEARNING,
+  Features.MAX_PROFILES, Features.DAILY_AUTO_APPLY_CAP,
+]);
 
 export const adminRouter = router({
   // ── Admin-only: user management ──
@@ -64,6 +71,53 @@ export const adminRouter = router({
       if (!rows[0])
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
       return rows[0];
+    }),
+
+  // ── Admin-only: per-user access control ──
+  getUserAccess: adminProcedure
+    .input(z.object({ userId: z.number() }))
+    .query(async ({ input }) => {
+      const u = (await getDb().select().from(users).where(eq(users.id, input.userId)).limit(1)).at(0);
+      if (!u) throw new TRPCError({ code: "NOT_FOUND" });
+      const plan = await effectivePlan(u);
+      const grants = await getDb().select().from(featureGrants).where(eq(featureGrants.userId, input.userId));
+      return { tier: u.subscriptionTier, plan, grants };
+    }),
+
+  grantFeature: adminProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        feature: featureEnum,
+        value: z.string().max(40),
+        expiresAt: z.string().datetime().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db.delete(featureGrants).where(
+        and(eq(featureGrants.userId, input.userId), eq(featureGrants.feature, input.feature)),
+      );
+      const rows = await db
+        .insert(featureGrants)
+        .values({
+          userId: input.userId,
+          feature: input.feature,
+          value: input.value,
+          expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+          grantedBy: ctx.user.id,
+        })
+        .returning();
+      return rows[0];
+    }),
+
+  revokeFeature: adminProcedure
+    .input(z.object({ userId: z.number(), feature: featureEnum }))
+    .mutation(async ({ input }) => {
+      await getDb().delete(featureGrants).where(
+        and(eq(featureGrants.userId, input.userId), eq(featureGrants.feature, input.feature)),
+      );
+      return { success: true };
     }),
 
   // ── Admin-only: support requests ──

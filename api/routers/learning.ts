@@ -95,7 +95,7 @@ Return ONLY valid JSON.`,
 
   // Aggregate takeaways into a set of profile-enhancement tips.
   digest: authedProcedure.mutation(async ({ ctx }) => {
-    requireAIEntitlement(ctx.user);
+    await requireAIEntitlement(ctx.user);
     const items = await getDb()
       .select()
       .from(learningItems)

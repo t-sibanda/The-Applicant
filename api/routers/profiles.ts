@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
 import { profiles } from "../db/schema";
-import { TierEntitlements, type SubscriptionTierType } from "../../shared/constants";
+import { effectivePlan } from "../lib/entitlements";
 import { TRPCError } from "@trpc/server";
 
 export const profilesRouter = router({
@@ -30,9 +30,8 @@ export const profilesRouter = router({
         .from(profiles)
         .where(eq(profiles.userId, ctx.user.id));
 
-      const max =
-        TierEntitlements[ctx.user.subscriptionTier as SubscriptionTierType]
-          ?.maxProfiles ?? 1;
+      const plan = await effectivePlan(ctx.user);
+      const max = plan.maxProfiles;
       if (existing.length >= max) {
         throw new TRPCError({
           code: "FORBIDDEN",

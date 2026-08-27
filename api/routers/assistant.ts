@@ -89,7 +89,7 @@ export const assistantRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      requireAIEntitlement(ctx.user);
+      await requireAIEntitlement(ctx.user);
       const db = getDb();
       const conv = await ownConversation(ctx.user.id, input.conversationId);
       if (!conv) throw new TRPCError({ code: "NOT_FOUND" });

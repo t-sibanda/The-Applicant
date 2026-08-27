@@ -1,5 +1,94 @@
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { Shield, X } from "lucide-react";
+
+const BOOL_FEATURES = [
+  { key: "aiOptimizer", label: "AI Optimizer" },
+  { key: "semiApply", label: "Assisted apply" },
+  { key: "autoApply", label: "Auto-apply" },
+  { key: "portfolio", label: "Portfolio" },
+  { key: "career", label: "Career Builder" },
+  { key: "learning", label: "Learning" },
+  { key: "jobSearch", label: "Job search" },
+] as const;
+
+function AccessEditor({ userId, onClose }: { userId: number; onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const access = trpc.admin.getUserAccess.useQuery({ userId });
+  const grant = trpc.admin.grantFeature.useMutation();
+  const revoke = trpc.admin.revokeFeature.useMutation();
+  const [days, setDays] = useState(0); // 0 = permanent
+
+  const plan = access.data?.plan as Record<string, boolean | number> | undefined;
+  const grants = access.data?.grants ?? [];
+
+  const expiryIso = () => (days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : undefined);
+  const grantOf = (f: string) => grants.find((g) => g.feature === f);
+
+  const toggle = async (feature: string, value: boolean) => {
+    await grant.mutateAsync({ userId, feature: feature as never, value: String(value), expiresAt: expiryIso() });
+    await utils.admin.getUserAccess.invalidate({ userId });
+    toast.success(`${value ? "Granted" : "Blocked"} ${feature}${days > 0 ? ` for ${days} days` : ""}`);
+  };
+  const clearGrant = async (feature: string) => {
+    await revoke.mutateAsync({ userId, feature: feature as never });
+    await utils.admin.getUserAccess.invalidate({ userId });
+    toast.success("Reset to tier default");
+  };
+  const setCap = async (v: number) => {
+    await grant.mutateAsync({ userId, feature: "dailyAutoApplyCap" as never, value: String(v), expiresAt: expiryIso() });
+    await utils.admin.getUserAccess.invalidate({ userId });
+    toast.success(`Auto-apply cap set to ${v}/day`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="card max-w-lg w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2"><Shield className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Access control</h3></div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 overflow-y-auto space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500">Grant duration:</span>
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+              <option value={0}>Permanent</option>
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          </div>
+          {BOOL_FEATURES.map((f) => {
+            const g = grantOf(f.key);
+            const effective = !!plan?.[f.key];
+            return (
+              <div key={f.key} className="flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-slate-700">{f.label}</div>
+                  <div className="text-[11px] text-slate-400">
+                    {effective ? "Enabled" : "Disabled"}
+                    {g && <span> · override{g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleDateString()}` : " (permanent)"}</span>}
+                  </div>
+                </div>
+                <button onClick={() => toggle(f.key, true)} className="text-xs font-semibold text-emerald-600 hover:underline">Grant</button>
+                <button onClick={() => toggle(f.key, false)} className="text-xs font-semibold text-rose-500 hover:underline">Block</button>
+                {g && <button onClick={() => clearGrant(f.key)} className="text-xs text-slate-400 hover:underline">Reset</button>}
+              </div>
+            );
+          })}
+          <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-700">Auto-apply daily cap</div>
+              <div className="text-[11px] text-slate-400">Currently {String(plan?.dailyAutoApplyCap ?? 0)}/day</div>
+            </div>
+            {[0, 5, 10, 20].map((v) => <button key={v} onClick={() => setCap(v)} className="text-xs font-semibold text-brand hover:underline">{v}</button>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Admin() {
   const utils = trpc.useUtils();
@@ -8,6 +97,7 @@ export default function Admin() {
   const setStatus = trpc.admin.setUserStatus.useMutation();
   const setTier = trpc.admin.setUserTier.useMutation();
   const resolve = trpc.admin.resolveSupportRequest.useMutation();
+  const [accessUserId, setAccessUserId] = useState<number | null>(null);
 
   return (
     <div className="max-w-5xl">
@@ -55,6 +145,7 @@ export default function Admin() {
                     <option value="basic">basic</option>
                     <option value="pro">pro</option>
                   </select>
+                  <button onClick={() => setAccessUserId(u.id)} className="text-xs font-semibold text-brand hover:underline">Access</button>
                 </td>
               </tr>
             ))}
@@ -78,6 +169,8 @@ export default function Admin() {
         ))}
         {requests.data?.length === 0 && <p className="text-sm text-slate-400">No support requests.</p>}
       </div>
+
+      {accessUserId != null && <AccessEditor userId={accessUserId} onClose={() => setAccessUserId(null)} />}
     </div>
   );
 }

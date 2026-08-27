@@ -50,6 +50,13 @@
       "when": 1787855718690,
       "tag": "0006_cold_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787856636255,
+      "tag": "0007_solid_vanisher",
+      "breakpoints": true
     }
   ]
 }
