@@ -97,7 +97,20 @@ export default function Admin() {
   const setStatus = trpc.admin.setUserStatus.useMutation();
   const setTier = trpc.admin.setUserTier.useMutation();
   const resolve = trpc.admin.resolveSupportRequest.useMutation();
+  const resetPw = trpc.admin.resetUserPassword.useMutation();
   const [accessUserId, setAccessUserId] = useState<number | null>(null);
+
+  const resetPassword = async (userId: number, email: string) => {
+    const temp = prompt(`Set a temporary password for ${email} (8+ chars). They can change it in Account Settings after signing in.`);
+    if (!temp) return;
+    if (temp.length < 8) return toast.error("Password must be at least 8 characters");
+    try {
+      await resetPw.mutateAsync({ userId, tempPassword: temp });
+      toast.success(`Temporary password set for ${email}. Share it securely; they should change it on next sign-in.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
 
   return (
     <div className="max-w-5xl">
@@ -146,6 +159,7 @@ export default function Admin() {
                     <option value="pro">pro</option>
                   </select>
                   <button onClick={() => setAccessUserId(u.id)} className="text-xs font-semibold text-brand hover:underline">Access</button>
+                  <button onClick={() => resetPassword(u.id, u.email)} className="text-xs font-semibold text-slate-500 hover:underline">Reset PW</button>
                 </td>
               </tr>
             ))}

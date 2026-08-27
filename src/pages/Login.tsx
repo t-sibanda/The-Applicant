@@ -107,6 +107,12 @@ export default function Login() {
               {busy ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
+
+          {mode === "login" && (
+            <p className="text-center text-[11px] text-slate-400 mt-3">
+              Forgot your password? Contact your administrator to reset it.
+            </p>
+          )}
         </div>
         <p className="text-center text-xs text-white/50 mt-4">
           Find better jobs, tailor your resume, and land the interview.

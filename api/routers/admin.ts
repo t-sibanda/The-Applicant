@@ -5,6 +5,7 @@ import { getDb } from "../db/client";
 import { users, supportRequests, featureGrants } from "../db/schema";
 import { UserStatus, Features } from "../../shared/constants";
 import { effectivePlan } from "../lib/entitlements";
+import { hashPassword } from "../lib/auth";
 import { TRPCError } from "@trpc/server";
 
 const featureEnum = z.enum([
@@ -118,6 +119,24 @@ export const adminRouter = router({
         and(eq(featureGrants.userId, input.userId), eq(featureGrants.feature, input.feature)),
       );
       return { success: true };
+    }),
+
+  // Admin sets a temporary password for a locked-out user. The user then
+  // signs in with it and changes it in Account Settings.
+  resetUserPassword: adminProcedure
+    .input(z.object({ userId: z.number(), tempPassword: z.string().min(8).max(128) }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Use Account Settings to change your own password." });
+      }
+      const passwordHash = await hashPassword(input.tempPassword);
+      const rows = await getDb()
+        .update(users)
+        .set({ passwordHash })
+        .where(eq(users.id, input.userId))
+        .returning({ id: users.id, email: users.email });
+      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      return { success: true, email: rows[0].email };
     }),
 
   // ── Admin-only: support requests ──
