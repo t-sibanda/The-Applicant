@@ -154,6 +154,7 @@ export default function Jobs() {
                   <option value={150000}>$150k+</option>
                   <option value={200000}>$200k+</option>
                 </select>
+                {minSalary > 0 && <span className="text-[10px] text-slate-400 normal-case">keeps unlisted-salary jobs</span>}
               </div>
               <div className="flex items-center gap-2">
                 <span>Type</span>
@@ -197,7 +198,11 @@ export default function Jobs() {
                   <div className="text-xs text-slate-400 mt-0.5 capitalize flex items-center gap-2 flex-wrap">
                     <span>{j.sourceName} · {j.status}</span>
                     {j.postedDate && <span className="normal-case">· posted {new Date(j.postedDate).toLocaleDateString()}</span>}
-                    {comp && <span className="chip bg-amber-100 text-amber-700"><DollarSign className="w-3 h-3" />{comp}</span>}
+                    {comp ? (
+                      <span className="chip bg-amber-100 text-amber-700"><DollarSign className="w-3 h-3" />{comp}</span>
+                    ) : (
+                      <span className="chip bg-slate-100 text-slate-400 normal-case">Salary not listed</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-2">
                     {j.sourceUrl && <a href={j.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}

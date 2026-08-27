@@ -112,11 +112,12 @@ export const jobsRouter = router({
           discarded++;
           continue;
         }
-        // Salary floor: if set, drop jobs whose max comp is below it (or have
-        // no comp data at all, since we can't confirm they meet the floor).
+        // Salary floor (soft): only drop jobs whose KNOWN salary is below the
+        // floor. Jobs without salary data are kept (they may still qualify) and
+        // flagged in the UI as unverified.
         if (input.minSalary && input.minSalary > 0) {
-          const max = raw.compensation?.max ?? raw.compensation?.min ?? 0;
-          if (max < input.minSalary) {
+          const known = raw.compensation?.max ?? raw.compensation?.min;
+          if (known != null && known < input.minSalary) {
             discarded++;
             continue;
           }
