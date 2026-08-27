@@ -49,8 +49,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const tier = user?.subscriptionTier ?? "free";
 
   return (
-    <div className="min-h-screen flex bg-[var(--bg)]">
-      <aside className="w-60 bg-white border-r border-[var(--border)] flex flex-col p-3 sticky top-0 h-screen">
+    <div className="min-h-screen flex relative z-10">
+      <aside className="w-60 bg-white/80 backdrop-blur-xl border-r border-white/40 flex flex-col p-3 sticky top-0 h-screen shadow-[1px_0_20px_rgba(15,23,42,0.06)]">
         <div className="px-2 py-3 flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
@@ -127,8 +127,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-        <div className="animate-fade-in">{children}</div>
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="min-h-[calc(100vh-3rem)] rounded-3xl bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_10px_40px_rgba(15,23,42,0.12)] p-6 md:p-8 animate-fade-in">
+          {children}
+        </div>
       </main>
     </div>
   );

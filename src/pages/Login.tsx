@@ -33,16 +33,16 @@ export default function Login() {
   const busy = loginMut.isPending || registerMut.isPending;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[var(--bg)] to-brand-light">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-brand flex items-center justify-center mx-auto mb-3">
-            <Sparkles className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl bg-[var(--gold)] flex items-center justify-center mx-auto mb-3 shadow-lg">
+            <Sparkles className="w-6 h-6 text-slate-900" />
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            The <span className="text-brand">Applicant</span>
+          <h1 className="hero-serif text-3xl text-white">
+            The <span style={{ color: "var(--gold)" }}>Applicant</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Your AI-powered job hunt companion</p>
+          <p className="text-sm text-white/60 mt-1">Your AI-powered job hunt companion</p>
         </div>
 
         <div className="card p-6">
@@ -108,7 +108,7 @@ export default function Login() {
             </button>
           </form>
         </div>
-        <p className="text-center text-xs text-slate-400 mt-4">
+        <p className="text-center text-xs text-white/50 mt-4">
           Find better jobs, tailor your resume, and land the interview.
         </p>
       </div>
