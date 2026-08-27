@@ -118,6 +118,30 @@ function safeApplySlide(p, n) {
   foot(s, n);
 }
 
+// Pricing — keep in sync with the app's Landing page PRICING.
+const PRICES = { free: "$0", basic: "$12/mo", pro: "$29/mo", org: "Custom" };
+
+function pricingSlide(p, n, includeOrg = false) {
+  const { bg, kicker, foot, title } = baseSlideHelpers(p);
+  const s = p.addSlide(); bg(s); kicker(s, "Pricing"); title(s, "Simple, honest pricing.");
+  const plans = [
+    ["Free", PRICES.free, ["Job search", "Learning Center", "1 profile"], "2A2440"],
+    ["Basic", PRICES.basic, ["AI Optimizer + Voice Studio", "Assisted apply", "Portfolio & Career", "3 profiles"], BRAND],
+    ["Pro", PRICES.pro, ["Everything in Basic", "Auto-apply (guided)", "25 profiles", "Priority AI"], GOLD],
+  ];
+  plans.forEach((pl, i) => {
+    const x = 0.9 + i * 4.0;
+    s.addShape("roundRect", { x, y: 2.2, w: 3.7, h: 3.8, fill: { color: CARD }, line: { color: pl[3], width: 1.25 }, rectRadius: 0.08 });
+    s.addText(pl[0], { x, y: 2.5, w: 3.7, h: 0.5, color: pl[3], fontSize: 22, bold: true, align: "center" });
+    s.addText(pl[1], { x, y: 3.05, w: 3.7, h: 0.5, color: WHITE, fontSize: 20, bold: true, align: "center" });
+    s.addText(pl[2].map((t) => ({ text: t, options: { bullet: { code: "2022" }, color: MUTED, fontSize: 13 } })), { x: x + 0.35, y: 3.7, w: 3.1, h: 2.1 });
+  });
+  if (includeOrg) {
+    s.addText([{ text: "Organizations: ", options: { color: GOLD, bold: true } }, { text: `${PRICES.org} — seats & admin controls for teams/cohorts (contact sales)`, options: { color: MUTED } }], { x: 0.9, y: 6.2, w: 11.5, h: 0.5, fontSize: 14 });
+  }
+  foot(s, n);
+}
+
 function closeSlide(p, line, sub) {
   const { bg, glow } = baseSlideHelpers(p);
   const s = p.addSlide(); bg(s); glow(s);
@@ -155,6 +179,7 @@ const FEATURES = [
   cardsSlide(p, "Your toolkit", "Everything you need, in one place.", FEATURES, 4);
   safeApplySlide(p, 5);
   comparisonSlide(p, 6);
+  pricingSlide(p, 7);
   closeSlide(p, "Apply smarter. Stand out. Get hired.", "Your voice. Your edge.");
   p.writeFile({ fileName: "Pitch-1-Job-Seekers.pptx" });
 }
@@ -179,6 +204,7 @@ const FEATURES = [
     ["Everyone personalized", "Voice Studio makes each client's output unique."],
   ], 4);
   comparisonSlide(p, 5);
+  pricingSlide(p, 6, true);
   closeSlide(p, "Better outcomes for every client you serve.", "Personalization at scale, with full oversight.");
   p.writeFile({ fileName: "Pitch-2-Organizations.pptx" });
 }

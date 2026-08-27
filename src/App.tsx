@@ -18,6 +18,7 @@ import Learning from "@/pages/Learning";
 import Account from "@/pages/Account";
 import Voice from "@/pages/Voice";
 import Demo from "@/pages/Demo";
+import Landing from "@/pages/Landing";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +39,14 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+// Root: logged-in users see their dashboard; visitors see the marketing landing.
+function Root() {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading)
+    return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading…</div>;
+  return isAuthenticated ? <AppLayout><Dashboard /></AppLayout> : <Landing />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -45,7 +54,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
-        <Route path="/" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/home" element={<Landing />} />
+        <Route path="/" element={<Root />} />
         <Route path="/profiles" element={<Protected><Profiles /></Protected>} />
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
         <Route path="/resume" element={<Protected><Resume /></Protected>} />
