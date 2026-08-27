@@ -30,6 +30,8 @@ export const JobStatus = {
 export type JobStatusType = (typeof JobStatus)[keyof typeof JobStatus];
 
 export const ApplicationStatus = {
+  DRAFT: "draft",
+  READY: "ready",
   SAVED: "saved",
   APPLIED: "applied",
   PHONE_SCREEN: "phone_screen",

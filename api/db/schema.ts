@@ -165,12 +165,17 @@ export const applications = pgTable(
     }),
     jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
     companyName: varchar("company_name", { length: 255 }),
+    jobTitle: varchar("job_title", { length: 300 }),
+    jobUrl: text("job_url"),
     status: varchar("status", { length: 30 }).notNull().default("applied"),
     appliedAt: timestamp("applied_at", { withTimezone: true }).defaultNow(),
     linkedVersionId: integer("linked_version_id").references(
       () => resumeVersions.id,
       { onDelete: "set null" },
     ),
+    // Review-mode assisted apply: drafted materials the user reviews/edits.
+    draftResume: text("draft_resume"),
+    draftCoverLetter: text("draft_cover_letter"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => ({

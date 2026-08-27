@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles } from "lucide-react";
 
 type SortKey = "recent" | "relevance" | "quality";
 
@@ -26,6 +26,25 @@ export default function Jobs() {
   const removeJob = trpc.jobs.remove.useMutation();
   const clear = trpc.jobs.clear.useMutation();
   const logApp = trpc.applications.create.useMutation();
+  const prepare = trpc.applications.prepare.useMutation();
+
+  const prepareApplication = async (j: any) => {
+    if (!j.description) return toast.error("This job has no description to tailor from");
+    const t = toast.loading("Drafting tailored resume & cover letter…");
+    try {
+      await prepare.mutateAsync({
+        jobId: j.id,
+        companyName: j.title,
+        jobTitle: j.title,
+        jobUrl: j.sourceUrl ?? undefined,
+        jobDescription: j.description,
+      });
+      await utils.applications.list.invalidate();
+      toast.success("Draft ready — review it on the Applications page", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed", { id: t });
+    }
+  };
 
   const hasActiveProfile = !!profiles.data?.some((p) => p.isActive);
 
@@ -236,6 +255,7 @@ export default function Jobs() {
                       </div>
                       <div className="flex items-center gap-3 mt-2 flex-wrap">
                         {j.sourceUrl && <a href={j.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
+                        <button onClick={() => prepareApplication(j)} disabled={prepare.isPending} className="text-xs text-brand font-semibold inline-flex items-center gap-1 hover:underline"><Sparkles className="w-3 h-3" /> Prepare application</button>
                         {j.status !== "saved" && <button onClick={() => mark(j.id, "saved")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Star className="w-3 h-3" /> Save</button>}
                         {j.status !== "applied" && <button onClick={() => mark(j.id, "applied")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Send className="w-3 h-3" /> Mark applied</button>}
                         <button onClick={() => notInterested(j.id)} className="text-xs text-slate-400 font-semibold inline-flex items-center gap-1 hover:text-rose-500"><ThumbsDown className="w-3 h-3" /> Not interested</button>

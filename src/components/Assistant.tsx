@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Send, Download, Save, Loader2, Bot, FileText, Plus } from "lucide-react";
+import { Send, Download, Save, Loader2, Bot, FileText, Plus, BarChart3, Gauge } from "lucide-react";
 
 /**
  * Stateful resume assistant: a persistent multi-turn thread that edits a
@@ -25,6 +25,24 @@ export function Assistant() {
   const [input, setInput] = useState("");
   const [workingDoc, setWorkingDoc] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Live ATS scoring against a pasted job description.
+  const [showAts, setShowAts] = useState(false);
+  const [atsJd, setAtsJd] = useState("");
+  const [ats, setAts] = useState<any | null>(null);
+  const atsMut = trpc.ai.atsScore.useMutation();
+
+  const scoreAts = async () => {
+    if (!atsJd.trim()) return toast.error("Paste a job description to score against");
+    if (!workingDoc.trim()) return toast.error("Your working document is empty");
+    try {
+      const res = await atsMut.mutateAsync({ resumeText: workingDoc, jobDescription: atsJd });
+      if (res.success && res.content) setAts(JSON.parse(res.content));
+      else toast.error(res.error ?? "Scoring failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
 
   // Auto-select or create a conversation.
   useEffect(() => {
@@ -165,6 +183,49 @@ export function Assistant() {
           className="flex-1 p-4 text-sm text-slate-700 resize-none outline-none font-mono whitespace-pre-wrap"
           placeholder="Your working resume appears here. It updates as the assistant makes changes, and you can edit it directly."
         />
+      </div>
+
+      {/* Live ATS scoring — score the working doc against a job, iterate in place */}
+      <div className="card p-4 lg:col-span-2">
+        <button onClick={() => setShowAts((v) => !v)} className="flex items-center gap-2 w-full text-left">
+          <Gauge className="w-4 h-4 text-brand" />
+          <span className="font-bold text-sm text-slate-800">Live ATS score</span>
+          <span className="text-xs text-slate-400">— score this document against a job and iterate</span>
+          <span className="ml-auto text-slate-300">{showAts ? "−" : "+"}</span>
+        </button>
+        {showAts && (
+          <div className="mt-3 space-y-3">
+            <textarea value={atsJd} onChange={(e) => setAtsJd(e.target.value)} className="textarea min-h-[90px]" placeholder="Paste the target job description…" />
+            <button onClick={scoreAts} disabled={atsMut.isPending} className="btn-primary">
+              {atsMut.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Scoring…</> : <><BarChart3 className="w-4 h-4" /> Score against this job</>}
+            </button>
+            {ats && (
+              <div className="rounded-xl bg-slate-50 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-bold text-sm text-slate-800">ATS match</span>
+                  <span className="text-2xl font-extrabold text-brand">{ats.overallScore}%</span>
+                </div>
+                {ats.breakdown && (
+                  <div className="space-y-1.5 mb-3">
+                    {Object.entries(ats.breakdown as Record<string, number>).map(([k, v]) => (
+                      <div key={k}>
+                        <div className="flex justify-between text-[11px]"><span className="capitalize text-slate-500">{k.replace(/([A-Z])/g, " $1")}</span><span className="text-slate-400">{v}%</span></div>
+                        <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden"><div className="h-full bg-brand rounded-full" style={{ width: `${v}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(ats.keywordMatch?.missing ?? []).length > 0 && (
+                  <div>
+                    <div className="text-xs font-bold text-rose-700 mb-1">Add these keywords (if you have them)</div>
+                    <div className="flex flex-wrap gap-1">{(ats.keywordMatch?.missing ?? []).slice(0, 15).map((k: string, i: number) => <span key={i} className="chip bg-white text-rose-700">{k}</span>)}</div>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-400 mt-3">Ask the assistant to weave in the missing keywords, then re-score.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

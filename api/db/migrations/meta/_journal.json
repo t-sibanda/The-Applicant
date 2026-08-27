@@ -43,6 +43,13 @@
       "when": 1787851625976,
       "tag": "0005_lying_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787855718690,
+      "tag": "0006_cold_rage",
+      "breakpoints": true
     }
   ]
 }
