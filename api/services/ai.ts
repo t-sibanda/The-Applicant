@@ -68,6 +68,7 @@ export async function chatCompletion(
   opts: { model?: string; maxTokens?: number } = {},
 ): Promise<AIResult> {
   const maxTokens = opts.maxTokens ?? 6000;
+  let lastError: string | null = null;
 
   if (env.ai.apiKey) {
     try {
@@ -79,10 +80,10 @@ export async function chatCompletion(
         maxTokens,
       );
       if (result.success) return result;
-      // fall through to fallback provider
+      // Keep the real provider error so it can be surfaced if all attempts fail.
+      lastError = result.error;
     } catch (err) {
-      // fall through
-      void err;
+      lastError = err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -120,7 +121,9 @@ export async function chatCompletion(
   return {
     success: false,
     content: null,
-    error: "AI service is temporarily unavailable. Please try again.",
+    error: lastError
+      ? `AI request failed: ${lastError}`
+      : "AI service is temporarily unavailable. Please try again.",
   };
 }
 
