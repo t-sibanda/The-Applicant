@@ -57,7 +57,20 @@ export async function createContext(
   return ctx;
 }
 
-const t = initTRPC.context<Context>().create({ transformer: superjson });
+const isProd = process.env.NODE_ENV === "production";
+
+const t = initTRPC.context<Context>().create({
+  transformer: superjson,
+  // In production, never leak internal error details/stacks to clients.
+  // Intentional TRPCErrors (UNAUTHORIZED/FORBIDDEN/etc.) keep their messages;
+  // unexpected INTERNAL_SERVER_ERRORs are shown as a generic message.
+  errorFormatter({ shape, error }) {
+    if (isProd && error.code === "INTERNAL_SERVER_ERROR") {
+      return { ...shape, message: "Something went wrong. Please try again." };
+    }
+    return shape;
+  },
+});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

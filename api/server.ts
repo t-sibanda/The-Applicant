@@ -27,7 +27,11 @@ app.get("/api/health", async (c) => {
     info.database = result?.[0]?.ok === 1 ? "connected" : "unknown";
   } catch (err) {
     info.database = "FAILED";
-    info.databaseError = err instanceof Error ? err.message : String(err);
+    // Never leak raw DB errors publicly — they can contain host/connection
+    // details. Only surface detail in non-production for local debugging.
+    if (!env.isProduction) {
+      info.databaseError = err instanceof Error ? err.message : String(err);
+    }
   }
 
   return c.json(info);

@@ -1,8 +1,23 @@
 node_modules
 dist
+build
+
+# Environment / secrets — never commit
 .env
-.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Logs & artifacts
 *.log
-.DS_Store
-uploads
 *.tsbuildinfo
+.DS_Store
+
+# Local uploads / data exports
+uploads
+*-data-export.json
+health_*.txt
+db_*.txt
