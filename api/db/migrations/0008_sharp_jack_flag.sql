@@ -1,0 +1,1 @@
+ALTER TABLE "applicant"."resume_profiles" ADD COLUMN "voice_json" jsonb;

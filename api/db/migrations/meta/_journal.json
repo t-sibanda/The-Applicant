@@ -57,6 +57,13 @@
       "when": 1787856636255,
       "tag": "0007_solid_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787864041192,
+      "tag": "0008_sharp_jack_flag",
+      "breakpoints": true
     }
   ]
 }

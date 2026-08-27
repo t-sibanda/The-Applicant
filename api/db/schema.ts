@@ -75,6 +75,7 @@ export const resumeProfiles = pgTable(
     baseResumeText: text("base_resume_text").notNull().default(""),
     baseResumeJson: jsonb("base_resume_json"),
     voiceProfile: text("voice_profile"),
+    voiceJson: jsonb("voice_json"),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
