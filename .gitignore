@@ -21,3 +21,6 @@ uploads
 *-data-export.json
 health_*.txt
 db_*.txt
+
+# Office lock/temp files
+~$*
