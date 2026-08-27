@@ -32,6 +32,8 @@ export default function Jobs() {
   const [keywords, setKeywords] = useState("");
   const [minRelevance, setMinRelevance] = useState(45);
   const [maxDaysOld, setMaxDaysOld] = useState(0); // 0 = any time
+  const [minSalary, setMinSalary] = useState(0);
+  const [contractType, setContractType] = useState<"" | "full_time" | "part_time" | "contract" | "permanent">("");
 
   const runSearch = async () => {
     try {
@@ -40,6 +42,8 @@ export default function Jobs() {
         keywords: keywords || undefined, minRelevance,
         maxDaysOld: maxDaysOld > 0 ? maxDaysOld : undefined,
         sortByDate: maxDaysOld > 0,
+        minSalary: minSalary > 0 ? minSalary : undefined,
+        contractType: contractType || undefined,
       });
       const parts = [`${res.saved} new`];
       if (res.duplicates) parts.push(`${res.duplicates} already saved`);
@@ -138,6 +142,27 @@ export default function Jobs() {
                   <option value={3}>Last 3 days</option>
                   <option value={7}>Last week</option>
                   <option value={30}>Last month</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>Min salary</span>
+                <select value={minSalary} onChange={(e) => setMinSalary(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                  <option value={0}>Any</option>
+                  <option value={50000}>$50k+</option>
+                  <option value={75000}>$75k+</option>
+                  <option value={100000}>$100k+</option>
+                  <option value={150000}>$150k+</option>
+                  <option value={200000}>$200k+</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>Type</span>
+                <select value={contractType} onChange={(e) => setContractType(e.target.value as never)} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                  <option value="">Any</option>
+                  <option value="full_time">Full-time</option>
+                  <option value="part_time">Part-time</option>
+                  <option value="contract">Contract</option>
+                  <option value="permanent">Permanent</option>
                 </select>
               </div>
             </div>

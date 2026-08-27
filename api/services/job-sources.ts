@@ -22,6 +22,8 @@ export interface JobQuery {
   limit?: number;
   maxDaysOld?: number; // recency filter (supported by Adzuna)
   sortByDate?: boolean;
+  minSalary?: number; // minimum annual salary (Adzuna native)
+  contractType?: "full_time" | "part_time" | "contract" | "permanent";
 }
 
 export interface RawJob {
@@ -101,6 +103,12 @@ const adzunaSource: JobSource = {
     // Recency: Adzuna supports max_days_old and sort_by=date.
     if (query.maxDaysOld) params.set("max_days_old", String(query.maxDaysOld));
     if (query.sortByDate) params.set("sort_by", "date");
+    // Salary + contract (Adzuna native filters).
+    if (query.minSalary) params.set("salary_min", String(query.minSalary));
+    if (query.contractType === "full_time") params.set("full_time", "1");
+    if (query.contractType === "part_time") params.set("part_time", "1");
+    if (query.contractType === "contract") params.set("contract", "1");
+    if (query.contractType === "permanent") params.set("permanent", "1");
 
     const res = await fetch(
       `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`,

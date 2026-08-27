@@ -39,6 +39,8 @@ export const jobsRouter = router({
         minRelevance: z.number().min(0).max(100).optional(),
         maxDaysOld: z.number().min(1).max(90).optional(),
         sortByDate: z.boolean().optional(),
+        minSalary: z.number().min(0).max(1000000).optional(),
+        contractType: z.enum(["full_time", "part_time", "contract", "permanent"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -65,6 +67,8 @@ export const jobsRouter = router({
         limit: input.limit ?? 40,
         maxDaysOld: input.maxDaysOld,
         sortByDate: input.sortByDate,
+        minSalary: input.minSalary,
+        contractType: input.contractType,
       });
 
       const relInputs = {
@@ -107,6 +111,15 @@ export const jobsRouter = router({
         if (relevance < minRel) {
           discarded++;
           continue;
+        }
+        // Salary floor: if set, drop jobs whose max comp is below it (or have
+        // no comp data at all, since we can't confirm they meet the floor).
+        if (input.minSalary && input.minSalary > 0) {
+          const max = raw.compensation?.max ?? raw.compensation?.min ?? 0;
+          if (max < input.minSalary) {
+            discarded++;
+            continue;
+          }
         }
 
         const dupe = await db
