@@ -241,4 +241,31 @@ export const jobsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Job not found." });
       return rows[0];
     }),
+
+  // Personal quality rating (0-100) set by the user for a job's company.
+  rate: authedProcedure
+    .input(z.object({ id: z.number(), score: z.number().min(0).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      const rows = await getDb()
+        .update(jobs)
+        .set({ qualityScore: input.score })
+        .where(and(eq(jobs.id, input.id), eq(jobs.userId, ctx.user.id)))
+        .returning();
+      if (!rows[0])
+        throw new TRPCError({ code: "NOT_FOUND", message: "Job not found." });
+      return rows[0];
+    }),
+
+  // Delete a single job (e.g. "not interested").
+  remove: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const rows = await getDb()
+        .delete(jobs)
+        .where(and(eq(jobs.id, input.id), eq(jobs.userId, ctx.user.id)))
+        .returning({ id: jobs.id });
+      if (!rows[0])
+        throw new TRPCError({ code: "NOT_FOUND", message: "Job not found." });
+      return { success: true };
+    }),
 });
