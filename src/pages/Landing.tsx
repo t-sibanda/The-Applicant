@@ -17,7 +17,7 @@ const PRICING = {
 };
 
 const FEATURES = [
-  { icon: Mic, title: "Voice Studio", desc: "The AI learns, summarizes, and tunes your writing voice — so every document sounds like you." },
+  { icon: Mic, title: "Voice Studio", desc: "It learns how you write, shows you what it heard, and lets you fine-tune it. Every document then sounds like you." },
   { icon: Bot, title: "AI Optimizer", desc: "Tailor resumes, generate cover letters, score ATS fit, and analyze skill gaps." },
   { icon: Briefcase, title: "Smart Job Search", desc: "Multiple compliant sources, relevance ranking, salary and recency filters." },
   { icon: LayoutTemplate, title: "Portfolio Builder", desc: "An interactive, shareable page that markets you to interviewers." },
@@ -47,11 +47,11 @@ export default function Landing() {
           <div className="absolute right-0 top-8 w-72 h-72 rounded-full hidden md:block" style={{ background: "radial-gradient(circle, rgba(245,184,0,0.28), transparent 70%)" }} />
           <div className="relative max-w-2xl">
             <div className="flex items-center gap-2 text-[var(--gold)] text-xs font-bold uppercase tracking-[0.15em] mb-3"><Sparkles className="w-4 h-4" /> AI job-hunt platform</div>
-            <h1 className="hero-serif text-4xl md:text-6xl text-white">Apply in your voice — not spray-and-pray.</h1>
-            <p className="text-white/60 text-lg mt-5 max-w-xl">The Applicant finds better jobs, tailors every application in your authentic voice, and helps you apply with confidence — safely.</p>
+            <h1 className="hero-serif text-4xl md:text-6xl text-white">Apply in your voice.</h1>
+            <p className="text-white/60 text-lg mt-5 max-w-xl">The Applicant helps you find better jobs and write every application so it actually sounds like you. You stay in control the whole way.</p>
             <div className="flex gap-3 mt-8 flex-wrap">
               <Link to="/login" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-[var(--gold)] text-slate-900 font-bold hover:brightness-105">Get started free <ArrowRight className="w-4 h-4" /></Link>
-              <Link to="/demo" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-white/25 text-white font-semibold hover:bg-white/10"><Play className="w-4 h-4" /> Watch the demo</Link>
+              <Link to="/story" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-white/25 text-white font-semibold hover:bg-white/10"><Play className="w-4 h-4" /> Watch Maya's story</Link>
             </div>
           </div>
         </div>
@@ -60,7 +60,7 @@ export default function Landing() {
       {/* Features */}
       <div className="max-w-5xl mx-auto px-6 py-14">
         <h2 className="text-2xl font-bold text-white font-serif-display text-center mb-2">Everything you need, in one place</h2>
-        <p className="text-center text-white/50 mb-8">A full-stack toolkit — not a single trick.</p>
+        <p className="text-center text-white/50 mb-8">Not one clever trick. The whole job hunt, sorted.</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((f) => (
             <div key={f.title} className="card p-5 card-hover">

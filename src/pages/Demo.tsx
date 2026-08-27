@@ -83,7 +83,7 @@ export default function Demo() {
         {step === 1 && (
           <div>
             <div className="flex items-center gap-2 mb-1"><Mic className="w-5 h-5 text-brand" /><h2 className="text-lg font-bold text-slate-800">Voice Studio</h2></div>
-            <p className="text-sm text-slate-500 mb-4">The flagship: the AI learns your writing voice — and lets you see and tune it.</p>
+            <p className="text-sm text-slate-500 mb-4">This is the part people love. It learns how you write, then lets you see and adjust it.</p>
             {!analyzed ? (
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs text-slate-500 mb-2">Sample writing pasted:</p>
@@ -183,7 +183,7 @@ export default function Demo() {
           <div className="text-center py-6">
             <div className="w-16 h-16 rounded-2xl bg-brand-light flex items-center justify-center mx-auto mb-4"><Sparkles className="w-8 h-8 text-brand" /></div>
             <h2 className="text-xl font-bold text-slate-800 font-serif-display">That's The Applicant.</h2>
-            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">Voice-personalized, quality-first, all-in-one, and safe — the antidote to generic, ban-risky job-hunt bots.</p>
+            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">It sounds like you, it puts quality first, and it keeps you in control. That's the difference from the spray-and-pray bots.</p>
             <div className="flex gap-2 justify-center mt-6 flex-wrap">
               <Link to="/voice" className="btn-primary"><Mic className="w-4 h-4" /> Open Voice Studio</Link>
               <Link to="/jobs" className="btn-ghost"><Briefcase className="w-4 h-4" /> Find jobs</Link>

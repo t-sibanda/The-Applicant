@@ -114,10 +114,10 @@ export default function Profiles() {
           <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${completenessPct}%` }} />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>‚óè Active profile</div>
-          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>‚óè Resume</div>
-          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>‚óè Voice profile</div>
-          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>‚óè Saved items</div>
+          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>‚, è Active profile</div>
+          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>‚, è Resume</div>
+          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>‚, è Voice profile</div>
+          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>‚, è Saved items</div>
         </div>
       </div>
 

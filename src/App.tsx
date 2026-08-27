@@ -18,6 +18,7 @@ import Learning from "@/pages/Learning";
 import Account from "@/pages/Account";
 import Voice from "@/pages/Voice";
 import Demo from "@/pages/Demo";
+import Story from "@/pages/Story";
 import Landing from "@/pages/Landing";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -54,6 +55,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
+        <Route path="/story" element={<Story />} />
         <Route path="/home" element={<Landing />} />
         <Route path="/" element={<Root />} />
         <Route path="/profiles" element={<Protected><Profiles /></Protected>} />

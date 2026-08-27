@@ -52,7 +52,7 @@ export default function Dashboard() {
             {user?.name ? <>{user.name.split(" ")[0]}, let's land<br />your next role.</> : "Let's land your next role."}
           </h1>
           <p className="text-white/60 text-sm md:text-base mt-4 max-w-lg leading-relaxed">
-            Your AI-powered command center — find better jobs, tailor every application, and build a standout profile that markets you.
+            Everything for your search in one place. Find good roles, write applications that sound like you, and keep track of it all.
           </p>
           <div className="flex gap-3 mt-6">
             <Link to="/optimizer" className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-[var(--gold)] text-slate-900 text-sm font-bold hover:brightness-105 transition-all active:scale-95">
