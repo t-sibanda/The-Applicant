@@ -14,6 +14,7 @@ import {
   Sparkles,
   LayoutTemplate,
   GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +28,7 @@ const nav = [
   { to: "/optimizer", label: "AI Optimizer", icon: Bot },
   { to: "/portfolio", label: "Portfolio", icon: LayoutTemplate },
   { to: "/career", label: "Career Builder", icon: GraduationCap },
+  { to: "/learning", label: "Learning Center", icon: BookOpen },
   { to: "/applications", label: "Applications", icon: Send },
   { to: "/support", label: "Help & Support", icon: LifeBuoy },
   { to: "/billing", label: "Billing", icon: CreditCard },

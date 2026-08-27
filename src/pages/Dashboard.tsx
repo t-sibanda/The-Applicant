@@ -39,24 +39,26 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-5xl">
-      {/* Hero */}
-      <div className="gradient-hero rounded-3xl p-6 md:p-8 text-white relative overflow-hidden mb-6 animate-fade-in">
-        <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative">
-          <div className="flex items-center gap-2 text-white/70 text-sm mb-1">
+      {/* Hero — award-style dark canvas with warm accent glow */}
+      <div className="hero-dark rounded-3xl p-8 md:p-10 text-white mb-6 animate-fade-in">
+        {/* accent circle behind the content, echoing editorial hero layouts */}
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 w-56 h-56 rounded-full hidden md:block"
+          style={{ background: "radial-gradient(circle, rgba(245,184,0,0.35), rgba(245,184,0,0.05) 70%)" }} />
+        <div className="relative max-w-2xl">
+          <div className="flex items-center gap-2 text-[var(--gold)] text-xs font-semibold uppercase tracking-[0.15em] mb-3">
             <Sparkles className="w-4 h-4" /> Welcome back
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold font-display">
-            {user?.name || "Let's land your next role"}
+          <h1 className="hero-serif text-3xl md:text-5xl">
+            {user?.name ? <>Hi {user.name.split(" ")[0]}, let's<br />land your next role.</> : "Land your next role with confidence."}
           </h1>
-          <p className="text-white/70 text-sm mt-1 max-w-lg">
-            Your AI-powered command center for finding jobs, tailoring applications, and building a standout profile.
+          <p className="text-white/60 text-sm md:text-base mt-4 max-w-lg leading-relaxed">
+            Your AI-powered command center — find better jobs, tailor every application, and build a standout profile that markets you.
           </p>
-          <div className="flex gap-2 mt-4">
-            <Link to="/optimizer" className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-slate-900 text-sm font-semibold hover:bg-white/90 transition-colors">
+          <div className="flex gap-3 mt-6">
+            <Link to="/optimizer" className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-[var(--gold)] text-slate-900 text-sm font-bold hover:brightness-105 transition-all active:scale-95">
               <Bot className="w-4 h-4" /> Open Optimizer
             </Link>
-            <Link to="/jobs" className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white/15 text-white text-sm font-semibold hover:bg-white/25 transition-colors">
+            <Link to="/jobs" className="inline-flex items-center gap-2 h-11 px-5 rounded-full border border-white/25 text-white text-sm font-semibold hover:bg-white/10 transition-all active:scale-95">
               <Briefcase className="w-4 h-4" /> Find jobs
             </Link>
           </div>
@@ -104,7 +106,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick actions */}
-      <h2 className="font-bold text-slate-800 mb-3 font-display">Jump back in</h2>
+      <h2 className="font-serif-display text-xl text-slate-800 mb-3">Jump back in</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {QUICK.map((q, i) => (
           <Link key={q.to} to={q.to} className={`tile animate-fade-in stagger-${i + 1}`} style={{ background: q.grad }}>

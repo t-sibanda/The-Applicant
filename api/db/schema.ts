@@ -317,9 +317,28 @@ export const portfolios = pgTable("portfolios", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+// ─── learning_items (curated links → training material / tips) ──
+export const learningItems = pgTable(
+  "learning_items",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    title: varchar("title", { length: 300 }),
+    category: varchar("category", { length: 40 }).notNull().default("tip"), // tip | resume | career | industry
+    summary: text("summary"),
+    takeaways: jsonb("takeaways"), // string[] actionable points
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ userIdx: index("learning_user_idx").on(t.userId) }),
+);
+
 // ─── Types ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Portfolio = typeof portfolios.$inferSelect;
+export type LearningItem = typeof learningItems.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type SavedItem = typeof savedItems.$inferSelect;

@@ -13,7 +13,10 @@
   --card: #ffffff;
   --border: #eceff4;
   --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --gold: #f5b800;
+  --ink-deep: #0b0b0f;
 }
 
 * {
@@ -68,7 +71,10 @@ h1, h2, h3, .font-display {
   }
 
   .page-title {
-    @apply text-2xl font-extrabold tracking-tight text-slate-900;
+    @apply text-3xl text-slate-900;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.015em;
   }
 
   .page-subtitle {
@@ -89,6 +95,26 @@ h1, h2, h3, .font-display {
 
   .gradient-hero {
     background: linear-gradient(120deg, #1e1b4b 0%, #4c1d95 45%, #7c3aed 100%);
+  }
+
+  /* Award-style dark hero with a warm accent glow (inspired by editorial/agency sites). */
+  .hero-dark {
+    position: relative;
+    background: radial-gradient(120% 120% at 85% 20%, rgba(245, 184, 0, 0.22), transparent 45%),
+      linear-gradient(135deg, #0b0b0f 0%, #16161d 100%);
+    overflow: hidden;
+  }
+
+  .hero-serif {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  .font-serif-display {
+    font-family: var(--font-serif);
+    letter-spacing: -0.015em;
   }
 
   .tile {
