@@ -37,6 +37,8 @@ export const jobsRouter = router({
         keywords: z.string().max(300).optional(),
         source: z.string().max(80).optional(),
         minRelevance: z.number().min(0).max(100).optional(),
+        maxDaysOld: z.number().min(1).max(90).optional(),
+        sortByDate: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -61,6 +63,8 @@ export const jobsRouter = router({
           (profile.locationPrefs as { location?: string } | null)?.location ??
           undefined,
         limit: input.limit ?? 40,
+        maxDaysOld: input.maxDaysOld,
+        sortByDate: input.sortByDate,
       });
 
       const relInputs = {
@@ -146,6 +150,7 @@ export const jobsRouter = router({
             compensation: raw.compensation ?? undefined,
             qualityScore: quality.qualityScore ?? undefined,
             relevanceScore: relevance,
+            postedDate: raw.postedDate ?? undefined,
             status: JobStatus.NEW,
             dedupeHash: raw.dedupeHash,
           })

@@ -1,0 +1,1 @@
+ALTER TABLE "applicant"."jobs" ADD COLUMN "posted_date" varchar(40);

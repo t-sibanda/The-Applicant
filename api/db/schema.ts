@@ -141,6 +141,7 @@ export const jobs = pgTable(
     compensation: jsonb("compensation"),
     qualityScore: integer("quality_score"),
     relevanceScore: integer("relevance_score"),
+    postedDate: varchar("posted_date", { length: 40 }),
     status: varchar("status", { length: 20 }).notNull().default("new"),
     dedupeHash: varchar("dedupe_hash", { length: 64 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

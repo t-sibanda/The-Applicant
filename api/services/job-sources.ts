@@ -20,6 +20,8 @@ export interface JobQuery {
   role?: string;
   location?: string;
   limit?: number;
+  maxDaysOld?: number; // recency filter (supported by Adzuna)
+  sortByDate?: boolean;
 }
 
 export interface RawJob {
@@ -29,6 +31,7 @@ export interface RawJob {
   sourceName: string;
   sourceUrl: string;
   compensation?: { min?: number; max?: number; currency?: string } | null;
+  postedDate?: string | null; // ISO date when available (Adzuna)
   dedupeHash: string;
 }
 
@@ -95,6 +98,10 @@ const adzunaSource: JobSource = {
       where: query.location || "",
       "content-type": "application/json",
     });
+    // Recency: Adzuna supports max_days_old and sort_by=date.
+    if (query.maxDaysOld) params.set("max_days_old", String(query.maxDaysOld));
+    if (query.sortByDate) params.set("sort_by", "date");
+
     const res = await fetch(
       `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`,
     );
@@ -107,6 +114,7 @@ const adzunaSource: JobSource = {
         redirect_url: string;
         salary_min?: number;
         salary_max?: number;
+        created?: string;
       }>;
     };
     return (data.results ?? []).map((j) => {
@@ -121,6 +129,7 @@ const adzunaSource: JobSource = {
           j.salary_min || j.salary_max
             ? { min: j.salary_min, max: j.salary_max, currency: "USD" }
             : null,
+        postedDate: j.created ?? null,
         dedupeHash: hashJob(j.title, company, j.redirect_url),
       };
     });
