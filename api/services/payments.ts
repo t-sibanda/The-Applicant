@@ -98,6 +98,25 @@ export async function handleWebhook(
     await db.update(users).set({ subscriptionTier: tier }).where(eq(users.id, userId));
   };
 
+  // Resolve our user id from event metadata, or fall back to the Stripe
+  // customer id we stored at checkout (subscription events lack our metadata).
+  const resolveUserId = async (
+    metaUserId?: string | null,
+    customerId?: string | null,
+  ): Promise<number | null> => {
+    const fromMeta = Number(metaUserId);
+    if (fromMeta) return fromMeta;
+    if (customerId) {
+      const rows = await db
+        .select({ userId: subscriptions.userId })
+        .from(subscriptions)
+        .where(eq(subscriptions.stripeCustomerId, customerId))
+        .limit(1);
+      if (rows[0]) return rows[0].userId;
+    }
+    return null;
+  };
+
   switch (event.type) {
     case "checkout.session.completed": {
       const s = event.data.object as {
@@ -123,20 +142,33 @@ export async function handleWebhook(
     case "customer.subscription.updated": {
       const sub = event.data.object as {
         metadata?: Record<string, string> | null;
+        customer?: string | null;
         items?: { data?: Array<{ price?: { id?: string } }> };
         status?: string;
       };
-      const userId = Number(sub.metadata?.userId);
+      const userId = await resolveUserId(sub.metadata?.userId, sub.customer);
       const priceId = sub.items?.data?.[0]?.price?.id ?? "";
-      if (userId) await applyTier(userId, tierForPrice(priceId));
+      if (userId) {
+        // Active/trialing → tier from price; past_due/unpaid/canceled → free.
+        const active = sub.status === "active" || sub.status === "trialing";
+        await applyTier(userId, active ? tierForPrice(priceId) : SubscriptionTier.FREE);
+        await db
+          .update(subscriptions)
+          .set({ status: sub.status, plan: tierForPrice(priceId) })
+          .where(eq(subscriptions.userId, userId));
+      }
       return true;
     }
     case "customer.subscription.deleted": {
       const sub = event.data.object as {
         metadata?: Record<string, string> | null;
+        customer?: string | null;
       };
-      const userId = Number(sub.metadata?.userId);
-      if (userId) await applyTier(userId, SubscriptionTier.FREE);
+      const userId = await resolveUserId(sub.metadata?.userId, sub.customer);
+      if (userId) {
+        await applyTier(userId, SubscriptionTier.FREE);
+        await db.update(subscriptions).set({ status: "canceled" }).where(eq(subscriptions.userId, userId));
+      }
       return true;
     }
     default:
