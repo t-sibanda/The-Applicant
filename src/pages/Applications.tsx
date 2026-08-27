@@ -179,7 +179,7 @@ export default function Applications() {
                       const material = rTab === "resume" ? rResume : rCover;
                       try { await navigator.clipboard.writeText(material); } catch { /* clipboard may be blocked */ }
                       window.open(reviewApp.jobUrl!, "_blank", "noopener");
-                      toast.success(`${rTab === "resume" ? "Resume" : "Cover letter"} copied — paste it on the site`);
+                      toast.success(`${rTab === "resume" ? "Resume" : "Cover letter"} copied. Paste it on the site.`);
                       // Confirm submission to move the pipeline forward.
                       setTimeout(async () => {
                         if (confirm("Did you submit your application on the site?")) {

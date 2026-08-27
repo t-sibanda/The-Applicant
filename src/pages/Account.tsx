@@ -99,14 +99,14 @@ export default function Account() {
       {/* Subscription */}
       <div className="card p-5 mb-4">
         <div className="flex items-center gap-2 mb-3"><CreditCard className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Subscription</h3></div>
-        <p className="text-sm text-slate-600">Current plan: <span className="font-semibold capitalize">{access.data?.tier ?? "—"}</span></p>
+        <p className="text-sm text-slate-600">Current plan: <span className="font-semibold capitalize">{access.data?.tier ?? "-"}</span></p>
         <Link to="/billing" className="btn-ghost mt-3"><CreditCard className="w-4 h-4" /> Manage plan</Link>
       </div>
 
       {/* Data */}
       <div className="card p-5 mb-4">
         <div className="flex items-center gap-2 mb-2"><Download className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Your data</h3></div>
-        <p className="text-xs text-slate-500 mb-3">Download a copy of everything you've stored — profiles, resumes, jobs, applications, and saved items.</p>
+        <p className="text-xs text-slate-500 mb-3">Download a copy of everything you've stored. Profiles, resumes, jobs, applications, and saved items.</p>
         <button onClick={doExport} disabled={exportData.isFetching} className="btn-ghost">
           {exportData.isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export my data (JSON)
         </button>

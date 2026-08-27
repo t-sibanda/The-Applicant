@@ -126,7 +126,7 @@ export function Assistant() {
               <p className="text-sm font-semibold text-slate-700">Let's improve your resume together</p>
               <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
                 Ask me to rewrite a section, quantify achievements, tailor for a role, or fix wording.
-                I'll edit the live document on the right — always downloadable.
+                I'll edit the live document on the right, and it stays downloadable.
               </p>
               <div className="flex flex-wrap justify-center gap-2 mt-4">
                 {["Make my summary stronger", "Quantify my achievements", "Improve my most recent role"].map((q) => (
@@ -190,7 +190,7 @@ export function Assistant() {
         <button onClick={() => setShowAts((v) => !v)} className="flex items-center gap-2 w-full text-left">
           <Gauge className="w-4 h-4 text-brand" />
           <span className="font-bold text-sm text-slate-800">Live ATS score</span>
-          <span className="text-xs text-slate-400">— score this document against a job and iterate</span>
+          <span className="text-xs text-slate-400">score this document against a job and iterate</span>
           <span className="ml-auto text-slate-300">{showAts ? "−" : "+"}</span>
         </button>
         {showAts && (

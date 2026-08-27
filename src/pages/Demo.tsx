@@ -13,7 +13,7 @@ import {
 
 const SAMPLE_VOICE = {
   summary:
-    "You write with confident, results-driven energy. Sentences are short and active, you lead with impact and quantify outcomes, and you avoid buzzwords in favor of concrete detail. Your tone is professional but warm — approachable, never stiff.",
+    "You write with confident, results-driven energy. Sentences are short and active, you lead with impact and quantify outcomes, and you skip buzzwords in favor of concrete detail. Your tone is professional but warm. Approachable, never stiff.",
   toneTags: ["confident", "direct", "results-driven", "warm", "concise"],
   signatureVerbs: ["led", "built", "scaled", "delivered", "streamlined", "drove"],
   formality: 62,
@@ -27,7 +27,7 @@ const SAMPLE_PREVIEW =
   "Mechanical engineer who builds and scales high-performance cooling systems. I led the design of a modular data-center cooling skid that cut installation time 35% and delivered 18% energy savings. I move fast, quantify everything, and bring teams with me.";
 
 const SAMPLE_JOBS = [
-  { title: "Senior Mechanical Engineer — Data Centers", company: "Atlas Infrastructure", match: 94, quality: 88, salary: "USD 140k–170k", posted: "1 day ago" },
+  { title: "Senior Mechanical Engineer, Data Centers", company: "Atlas Infrastructure", match: 94, quality: 88, salary: "USD 140k–170k", posted: "1 day ago" },
   { title: "Cooling Systems Design Lead", company: "Nimbus Cloud", match: 89, quality: 82, salary: "USD 130k–160k", posted: "3 days ago" },
   { title: "HVAC / Thermal Engineer", company: "GreenGrid", match: 76, quality: null, salary: null, posted: "6 days ago" },
 ];
@@ -57,7 +57,7 @@ export default function Demo() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-1">
         <h1 className="page-title">Product Demo</h1>
-        <span className="chip bg-amber-100 text-amber-700">Simulated — sample data</span>
+        <span className="chip bg-amber-100 text-amber-700">Simulated, sample data</span>
       </div>
       <p className="page-subtitle mb-5">A guided walkthrough of The Applicant. Sample results illustrate the experience.</p>
 
@@ -75,7 +75,7 @@ export default function Demo() {
           <div className="text-center py-8">
             <div className="w-16 h-16 rounded-2xl bg-brand-light flex items-center justify-center mx-auto mb-4"><Sparkles className="w-8 h-8 text-brand" /></div>
             <h2 className="text-xl font-bold text-slate-800 font-serif-display">Meet The Applicant</h2>
-            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">The AI job-hunt platform that applies in your voice. In this quick tour you'll teach the AI your voice, find matched jobs, tailor an application, and apply — safely.</p>
+            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">The job-hunt platform that applies in your voice. In this quick tour you'll show us your voice, find matched jobs, tailor an application, and apply safely.</p>
             <button onClick={next} className="btn-primary mx-auto mt-6"><Play className="w-4 h-4" /> Start the tour</button>
           </div>
         )}
@@ -87,7 +87,7 @@ export default function Demo() {
             {!analyzed ? (
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs text-slate-500 mb-2">Sample writing pasted:</p>
-                <p className="text-sm text-slate-600 italic">"I led a team that rebuilt our cooling platform from scratch — cut costs 20%, shipped in half the time…"</p>
+                <p className="text-sm text-slate-600 italic">"I led a team that rebuilt our cooling platform from scratch. Cut costs 20%, shipped in half the time…"</p>
                 <button onClick={() => setAnalyzed(true)} className="btn-primary mt-3"><Wand2 className="w-4 h-4" /> Analyze my voice</button>
               </div>
             ) : (
@@ -112,9 +112,9 @@ export default function Demo() {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setShowPreview(true)} className="btn-ghost"><Sparkles className="w-4 h-4" /> Try it — write in my voice</button>
+                <button onClick={() => setShowPreview(true)} className="btn-ghost"><Sparkles className="w-4 h-4" /> Try it, write in my voice</button>
                 {showPreview && <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">{SAMPLE_PREVIEW}</div>}
-                <p className="text-xs text-slate-400">A feedback bot lets you correct anything the AI missed ("I'm more concise", "I never use buzzwords") — and it updates instantly.</p>
+                <p className="text-xs text-slate-400">Tell us anything we missed ("I keep it shorter", "I never use buzzwords") and it updates on the spot.</p>
               </div>
             )}
           </div>
@@ -123,7 +123,7 @@ export default function Demo() {
         {step === 2 && (
           <div>
             <div className="flex items-center gap-2 mb-1"><Briefcase className="w-5 h-5 text-brand" /><h2 className="text-lg font-bold text-slate-800">Smart job search</h2></div>
-            <p className="text-sm text-slate-500 mb-4">Multiple compliant sources, ranked by relevance and quality — filter by salary, recency, and more.</p>
+            <p className="text-sm text-slate-500 mb-4">Several compliant sources, ranked by relevance and quality. Filter by salary, recency, and more.</p>
             <div className="space-y-2">
               {SAMPLE_JOBS.map((j) => (
                 <div key={j.title} className="rounded-xl bg-slate-50 p-3">
@@ -145,7 +145,7 @@ export default function Demo() {
         {step === 3 && (
           <div>
             <div className="flex items-center gap-2 mb-1"><FileText className="w-5 h-5 text-brand" /><h2 className="text-lg font-bold text-slate-800">Tailor & ATS score</h2></div>
-            <p className="text-sm text-slate-500 mb-4">One click tailors your resume to the job — in your voice — then scores it against the ATS.</p>
+            <p className="text-sm text-slate-500 mb-4">One click tailors your resume to the job in your voice, then scores it against the ATS.</p>
             {!atsRun ? (
               <button onClick={() => setAtsRun(true)} className="btn-primary"><Bot className="w-4 h-4" /> Tailor & score for "Senior Mechanical Engineer"</button>
             ) : (
@@ -166,10 +166,10 @@ export default function Demo() {
 
         {step === 4 && (
           <div>
-            <div className="flex items-center gap-2 mb-1"><Check className="w-5 h-5 text-emerald-500" /><h2 className="text-lg font-bold text-slate-800">Apply — the safe way</h2></div>
-            <p className="text-sm text-slate-500 mb-4">AI prepares your materials; you review and submit. No blind automation, no ban risk.</p>
+            <div className="flex items-center gap-2 mb-1"><Check className="w-5 h-5 text-emerald-500" /><h2 className="text-lg font-bold text-slate-800">Apply the safe way</h2></div>
+            <p className="text-sm text-slate-500 mb-4">We prepare your materials, you review and submit. No blind automation, no ban risk.</p>
             <div className="space-y-2">
-              {[["Assisted apply", "AI drafts a tailored resume + cover letter per job — you approve."], ["Auto-apply (guided)", "Bulk-prepare review-ready drafts for your top matches."], ["Autofill extension", "Fills forms on click; you submit. Never headless."]].map((c) => (
+              {[["Assisted apply", "We draft a tailored resume and cover letter per job. You approve."], ["Auto-apply (guided)", "Bulk-prepare review-ready drafts for your top matches."], ["Autofill extension", "Fills forms on click; you submit. Never headless."]].map((c) => (
                 <div key={c[0]} className="rounded-xl bg-slate-50 p-3 flex items-start gap-3">
                   <Check className="w-4 h-4 text-emerald-500 mt-0.5" />
                   <div><div className="font-semibold text-sm text-slate-800">{c[0]}</div><div className="text-xs text-slate-500">{c[1]}</div></div>

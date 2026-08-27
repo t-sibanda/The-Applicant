@@ -125,15 +125,15 @@ export default function Optimizer() {
     return (
       <div className="max-w-3xl">
         <h1 className="page-title">AI Optimizer</h1>
-        <p className="page-subtitle mb-6">Your AI-powered application toolkit.</p>
+        <p className="page-subtitle mb-6">Everything you need to sharpen an application, in one place.</p>
         <div className="card p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-brand-light flex items-center justify-center mx-auto mb-4">
             <Lock className="w-7 h-7 text-brand" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800">Unlock the AI Optimizer</h2>
+          <h2 className="text-lg font-bold text-slate-800">Turn on the AI Optimizer</h2>
           <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-            Tailor resumes to any job, generate cover letters in your voice, score ATS fit,
-            find skill gaps, and chat with an AI career coach.
+            Tailor resumes to any job, write cover letters in your voice, check your ATS fit,
+            spot skill gaps, and talk it through with a career coach.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-6 mb-6 max-w-lg mx-auto">
             {TOOLS.map((t) => (
@@ -144,7 +144,7 @@ export default function Optimizer() {
             ))}
           </div>
           <Link to="/billing" className="btn-primary">
-            <Sparkles className="w-4 h-4" /> Upgrade to unlock
+            <Sparkles className="w-4 h-4" /> Upgrade to turn it on
           </Link>
         </div>
       </div>
@@ -216,9 +216,9 @@ export default function Optimizer() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm text-slate-800">ATS Compatibility</h3>
-              <p className="text-[11px] text-slate-400">Multi-factor analysis — guidance, not a specific vendor's engine.</p>
+              <p className="text-[11px] text-slate-400">A read across several factors. Guidance, not any one vendor's engine.</p>
             </div>
-            <div className="text-3xl font-extrabold text-brand">{String((ats as any).overallScore ?? "—")}%</div>
+            <div className="text-3xl font-extrabold text-brand">{String((ats as any).overallScore ?? "-")}%</div>
           </div>
 
           {/* Per-factor bars */}
@@ -275,7 +275,7 @@ export default function Optimizer() {
         <div className="card p-5 mt-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-sm text-slate-800">Skill Gap Analysis</h3>
-            <div className="text-3xl font-extrabold text-brand">{String((gap as any).readinessScore ?? "—")}%<span className="text-xs text-slate-400 font-normal ml-1">ready</span></div>
+            <div className="text-3xl font-extrabold text-brand">{String((gap as any).readinessScore ?? "-")}%<span className="text-xs text-slate-400 font-normal ml-1">ready</span></div>
           </div>
           <div className="grid sm:grid-cols-2 gap-3 text-sm mb-3">
             <div className="rounded-xl bg-emerald-50 p-3">

@@ -78,7 +78,7 @@ export default function Voice() {
     if (!res.success) return toast.error(res.error ?? "Failed");
     setV(res.voice as Voice);
     await utils.voice.get.invalidate();
-    toast.success("Voice analyzed — review and refine below");
+    toast.success("Got it. Have a look below and tweak anything.");
   };
 
   const saveVoice = async () => {
@@ -86,7 +86,7 @@ export default function Voice() {
     await save.mutateAsync(v);
     await utils.voice.get.invalidate();
     await utils.resume.listProfiles.invalidate();
-    toast.success("Voice profile saved — AI will write like this");
+    toast.success("Saved. Your writing will sound like this from now on.");
   };
 
   const sendFeedback = async () => {
@@ -95,7 +95,7 @@ export default function Voice() {
     if (!res.success) return toast.error(res.error ?? "Failed");
     setV(res.voice as Voice);
     setFeedback("");
-    toast.success("Voice updated from your feedback");
+    toast.success("Thanks, we've adjusted your voice.");
   };
 
   const tryIt = async () => {
@@ -108,12 +108,12 @@ export default function Voice() {
     return (
       <div className="max-w-2xl">
         <h1 className="page-title">Voice Studio</h1>
-        <p className="page-subtitle mb-6">Teach the AI to write exactly like you.</p>
+        <p className="page-subtitle mb-6">Show us how you write, and we'll keep that voice in everything.</p>
         <div className="card p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-brand-light flex items-center justify-center mx-auto mb-4"><Mic className="w-7 h-7 text-brand" /></div>
           <h2 className="text-lg font-bold text-slate-800">Your voice is your edge</h2>
-          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">Upgrade to analyze your writing, get a plain-English voice summary, fine-tune tone and style, and have every AI document sound authentically like you.</p>
-          <Link to="/billing" className="btn-primary mx-auto mt-5"><Sparkles className="w-4 h-4" /> Upgrade to unlock</Link>
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">Upgrade to read your writing back to you in plain terms, shape the tone and style, and have every document sound like you actually wrote it.</p>
+          <Link to="/billing" className="btn-primary mx-auto mt-5"><Sparkles className="w-4 h-4" /> Upgrade to turn it on</Link>
         </div>
       </div>
     );
@@ -122,13 +122,13 @@ export default function Voice() {
   return (
     <div className="max-w-3xl">
       <h1 className="page-title">Voice Studio</h1>
-      <p className="page-subtitle mb-5">Teach the AI your voice — then pick, blend, and refine how it sounds.</p>
+      <p className="page-subtitle mb-5">Show us how you write, then pick, blend, and fine-tune how it sounds.</p>
 
       {/* Analyze */}
       <div className="card p-5 mb-4">
-        <div className="flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Analyze your writing</h3></div>
-        <p className="text-xs text-slate-500 mb-3">Paste a writing sample — a past cover letter, bio, LinkedIn summary, or email. The AI learns your tone, verbs, and style.</p>
-        <textarea value={sample} onChange={(e) => setSample(e.target.value)} className="textarea min-h-[120px]" placeholder="Paste a sample of your writing…" />
+        <div className="flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Read my writing</h3></div>
+        <p className="text-xs text-slate-500 mb-3">Drop in something you wrote. An old cover letter, a bio, a LinkedIn summary, even an email. We'll pick up on your tone, your go-to words, and your style.</p>
+        <textarea value={sample} onChange={(e) => setSample(e.target.value)} className="textarea min-h-[120px]" placeholder="Paste something you wrote…" />
         <button onClick={runAnalyze} disabled={analyze.isPending} className="btn-primary mt-3">
           {analyze.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing…</> : <><Sparkles className="w-4 h-4" /> Analyze my voice</>}
         </button>
@@ -176,10 +176,10 @@ export default function Voice() {
 
           {/* Feedback bot */}
           <div className="card p-5">
-            <div className="flex items-center gap-2 mb-2"><MessageSquare className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Refine — tell the AI what it missed</h3></div>
-            <p className="text-xs text-slate-500 mb-3">Correct or add nuance in plain language, e.g. "I'm more concise", "I never use buzzwords", "I like starting with impact."</p>
+            <div className="flex items-center gap-2 mb-2"><MessageSquare className="w-4 h-4 text-brand" /><h3 className="font-bold text-sm text-slate-800">Tell us what we got wrong</h3></div>
+            <p className="text-xs text-slate-500 mb-3">Set us straight in plain words. Things like "I keep it shorter", "I never use buzzwords", or "I like to lead with the result."</p>
             <div className="flex gap-2">
-              <input value={feedback} onChange={(e) => setFeedback(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendFeedback()} className="input flex-1" placeholder="Tell the AI how you really sound…" />
+              <input value={feedback} onChange={(e) => setFeedback(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendFeedback()} className="input flex-1" placeholder="Tell us how you really sound…" />
               <button onClick={sendFeedback} disabled={refine.isPending || !feedback.trim()} className="btn-primary px-4">{refine.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}</button>
             </div>
           </div>

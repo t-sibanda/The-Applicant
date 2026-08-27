@@ -26,7 +26,7 @@ export default function Career() {
   return (
     <div className="max-w-4xl">
       <h1 className="page-title">Career Builder</h1>
-      <p className="page-subtitle mb-5">Simulate your path, plan milestones, and find the certifications that make you competitive.</p>
+      <p className="page-subtitle mb-5">Map out where you're headed, set the milestones, and see which certifications keep you competitive.</p>
 
       <div className="card p-5 mb-5 grid sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
         <div>
@@ -50,8 +50,8 @@ export default function Career() {
             <GraduationCap className="w-7 h-7 text-brand" />
           </div>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Build a personalized career plan from your resume and profile — target roles, milestone timeline,
-            salary trajectory, and the certifications that boost your competitiveness.
+            We'll build a plan around your resume and profile. Roles to aim for, a timeline of milestones,
+            where the pay tends to go, and the certifications worth your time.
           </p>
         </div>
       )}

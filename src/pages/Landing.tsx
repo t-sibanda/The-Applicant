@@ -78,12 +78,12 @@ export default function Landing() {
           <h2 className="text-xl font-bold text-slate-800 font-serif-display mb-4">Why The Applicant is different</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             {[
-              "Writes in your voice — not generic templates",
-              "Relevance-scored matches — fewer off-target roles",
-              "Live, multi-factor ATS scoring",
-              "Human-in-the-loop apply — no ban-risk automation",
-              "All-in-one: search, tailor, apply, track, portfolio, career",
-              "Security-first: your data stays yours",
+              "Writes in your voice, not generic templates",
+              "Matches ranked by relevance, so fewer off-target roles",
+              "Live ATS scoring across several factors",
+              "You stay in the loop on every apply, no ban-risk automation",
+              "Everything in one place: search, tailor, apply, track, portfolio, career",
+              "Built security-first: your data stays yours",
             ].map((t) => (
               <div key={t} className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-emerald-500 shrink-0" />{t}</div>
             ))}
@@ -119,7 +119,7 @@ export default function Landing() {
         <div className="card p-8" style={{ background: "linear-gradient(135deg, #17131f, #2a2440)" }}>
           <div className="flex items-center gap-2 mb-2"><Building2 className="w-5 h-5 text-[color:var(--gold)]" /><span className="text-xs font-bold uppercase tracking-[0.15em] text-[color:var(--gold)]">For organizations</span></div>
           <h2 className="text-2xl font-bold text-white font-serif-display mb-3">Career centers, universities, employers & staffing firms</h2>
-          <p className="text-white/60 mb-6 max-w-2xl">Give every person you serve personalized, high-quality applications — with the admin controls to manage access, seats, and support at scale.</p>
+          <p className="text-white/60 mb-6 max-w-2xl">Give everyone you serve strong, personalized applications, with the admin controls to manage access, seats, and support at scale.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
               ["Admin console", "Manage all accounts centrally"],
@@ -143,7 +143,7 @@ export default function Landing() {
 
       {/* Footer */}
       <div className="max-w-5xl mx-auto px-6 py-10 flex items-center justify-between flex-wrap gap-3 border-t border-white/10">
-        <span className="text-white/40 text-sm">The Applicant — applies in your voice.</span>
+        <span className="text-white/40 text-sm">The Applicant. Applies in your voice.</span>
         <div className="flex items-center gap-4 text-sm">
           <Link to="/demo" className="text-white/60 hover:text-white">Demo</Link>
           <Link to="/login" className="text-white/60 hover:text-white">Sign in</Link>

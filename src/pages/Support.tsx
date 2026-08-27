@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { LifeBuoy, Loader2, BookOpen, MessageSquare, CreditCard } from "lucide-react";
 
 const FAQ = [
-  { q: "How do I start finding jobs?", a: "Create a profile with your target industry and role, mark it active, then run a search on the Jobs page." },
-  { q: "Why can't I use the AI tools?", a: "The AI Optimizer is a paid feature. Upgrade to Basic or Pro from the Billing page to unlock it." },
-  { q: "How does the AI write in my voice?", a: "On the Resume page, paste a writing sample under 'Voice profile'. The AI learns your tone and applies it to tailored resumes and letters." },
-  { q: "Where do my generated documents go?", a: "Use Save on any tailored resume or cover letter — they appear under 'Saved documents' on the Resume page." },
+  { q: "How do I start finding jobs?", a: "Set up a profile with the industry and role you're after, mark it active, then run a search on the Jobs page." },
+  { q: "Why can't I use the AI tools?", a: "The AI Optimizer sits on the paid plans. Upgrade to Basic or Pro from the Billing page to switch it on." },
+  { q: "How does it write in my voice?", a: "Head to the Resume page and paste a writing sample under 'Voice profile'. We'll learn your tone and carry it through your resumes and letters." },
+  { q: "Where do my documents go?", a: "Hit Save on any resume or cover letter and it lands under 'Saved documents' on the Resume page." },
 ];
 
 export default function Support() {
@@ -19,7 +19,7 @@ export default function Support() {
     if (!subject.trim() || !message.trim()) return toast.error("Fill in both fields");
     await create.mutateAsync({ subject, message });
     setSubject(""); setMessage("");
-    toast.success("Sent — our team will get back to you");
+    toast.success("Sent. We'll get back to you soon.");
   };
 
   return (

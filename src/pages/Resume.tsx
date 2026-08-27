@@ -55,7 +55,7 @@ export default function Resume() {
     if (voiceSample.trim().length < 100) return toast.error("Paste a longer writing sample (100+ chars)");
     try {
       const res = await analyzeVoice.mutateAsync({ resumeProfileId: current.id, samples: [voiceSample] });
-      if (res.success) { await utils.resume.listProfiles.invalidate(); toast.success("Voice profile created — AI will now write like you"); }
+      if (res.success) { await utils.resume.listProfiles.invalidate(); toast.success("Voice profile saved. We'll write like you from here on."); }
       else toast.error(res.error ?? "Failed");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -65,7 +65,7 @@ export default function Resume() {
   return (
     <div className="max-w-3xl">
       <h1 className="page-title">Resume</h1>
-      <p className="page-subtitle mb-5">Your base resume — the source everything is tailored from.</p>
+      <p className="page-subtitle mb-5">Your base resume. Everything else gets tailored from this.</p>
 
       <div className="card p-5 space-y-4">
         <div className="grid sm:grid-cols-3 gap-3">
@@ -84,7 +84,7 @@ export default function Resume() {
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500">Base resume text</label>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} className="textarea mt-1 min-h-[260px]" placeholder="Paste your full resume here — experience, skills, education…" />
+          <textarea value={text} onChange={(e) => setText(e.target.value)} className="textarea mt-1 min-h-[260px]" placeholder="Paste your full resume here. Experience, skills, education…" />
         </div>
         <button onClick={save} disabled={create.isPending || update.isPending} className="btn-primary">
           {(create.isPending || update.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save resume

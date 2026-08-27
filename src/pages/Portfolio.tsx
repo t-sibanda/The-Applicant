@@ -61,7 +61,7 @@ export default function Portfolio() {
       if (d.about) setAbout(d.about);
       if (d.accomplishments) setAccomplishments(d.accomplishments);
       if (d.skills) setSkills(d.skills);
-      toast.success("Generated in your voice — edit anything you like");
+      toast.success("Drafted in your voice. Edit anything you like.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Generation failed";
       setGenError(msg);
@@ -90,12 +90,12 @@ export default function Portfolio() {
           </button>
         </div>
       </div>
-      <p className="page-subtitle mb-5">Build an interactive portfolio that markets you — in your voice.</p>
+      <p className="page-subtitle mb-5">Build a portfolio that markets you, in your own voice.</p>
 
       {/* AI generate */}
       <div className="card p-4 mb-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg,#ede9fe,#fff)" }}>
         <Sparkles className="w-5 h-5 text-brand shrink-0" />
-        <div className="flex-1 text-sm text-slate-600">Let AI draft your headline, about, and highlights from your resume — in your voice.</div>
+        <div className="flex-1 text-sm text-slate-600">We'll draft your headline, about, and highlights from your resume, in your voice.</div>
         <button onClick={aiGenerate} disabled={generate.isPending} className="btn-primary shrink-0">
           {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate
         </button>
@@ -221,7 +221,7 @@ function PortfolioPreview({ headline, about, accomplishments, skills, links, tem
             </div>
           )}
           {links?.length > 0 && (
-            <div className="flex flex-wrap gap-3 pt-2">{links.map((l: any, i: number) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-sm font-semibold" style={{ color: accent }}>{l.label} �, </a>)}</div>
+            <div className="flex flex-wrap gap-3 pt-2">{links.map((l: any, i: number) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-sm font-semibold" style={{ color: accent }}>{l.label} �, </a>)}</div>
           )}
         </div>
       </div>

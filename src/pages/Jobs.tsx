@@ -37,7 +37,7 @@ export default function Jobs() {
       const res = await autoApply.mutateAsync({ count: 5 });
       await utils.applications.list.invalidate();
       await utils.jobs.list.invalidate();
-      toast.success(res.prepared > 0 ? `Prepared ${res.prepared} draft(s) — review them on Applications` : "No eligible jobs (search first, or daily cap reached)", { id: t });
+      toast.success(res.prepared > 0 ? `Prepared ${res.prepared} draft(s). Review them on Applications.` : "No eligible jobs (search first, or daily cap reached)", { id: t });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed", { id: t });
     }
@@ -55,7 +55,7 @@ export default function Jobs() {
         jobDescription: j.description,
       });
       await utils.applications.list.invalidate();
-      toast.success("Draft ready — review it on the Applications page", { id: t });
+      toast.success("Draft ready. Review it on the Applications page.", { id: t });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed", { id: t });
     }
@@ -84,7 +84,7 @@ export default function Jobs() {
       const parts = [`${res.saved} new`];
       if (res.duplicates) parts.push(`${res.duplicates} already saved`);
       if (res.discarded) parts.push(`${res.discarded} filtered out`);
-      toast.success(`Search complete — ${parts.join(", ")}`);
+      toast.success(`Search done. ${parts.join(", ")}`);
       await utils.jobs.list.invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Search failed");

@@ -36,7 +36,7 @@ export default function Learning() {
     await add.mutateAsync({ url, title: title || undefined, category });
     setUrl(""); setTitle("");
     await utils.learning.list.invalidate();
-    toast.success("Added — AI extracted key takeaways");
+    toast.success("Saved. We've pulled out the key points for you.");
   };
 
   const runDigest = async () => {
@@ -50,7 +50,7 @@ export default function Learning() {
     <div className="max-w-4xl">
       <h1 className="page-title">Learning Center</h1>
       <p className="page-subtitle mb-5">
-        Save LinkedIn posts, articles, and tips. AI turns them into actionable takeaways that shape your profile, portfolio, and candidacy.
+        Save the LinkedIn posts, articles, and tips worth keeping. We'll pull out what matters and fold it into your profile and portfolio.
       </p>
 
       {/* Add form */}
@@ -124,7 +124,7 @@ export default function Learning() {
         {items.data?.length === 0 && (
           <div className="card p-8 text-center">
             <BookOpen className="w-10 h-10 mx-auto text-slate-200 mb-3" />
-            <p className="text-sm text-slate-500">No saved resources yet. Paste a LinkedIn post or article link above — AI will extract the key tips for you.</p>
+            <p className="text-sm text-slate-500">Nothing saved yet. Paste a LinkedIn post or article link above and we'll pull out the key tips for you.</p>
           </div>
         )}
       </div>

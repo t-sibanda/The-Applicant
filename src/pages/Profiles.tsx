@@ -114,10 +114,10 @@ export default function Profiles() {
           <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${completenessPct}%` }} />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>‚, è Active profile</div>
-          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>‚, è Resume</div>
-          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>‚, è Voice profile</div>
-          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>‚, è Saved items</div>
+          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>ÔøΩ, ÔøΩ Active profile</div>
+          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>ÔøΩ, ÔøΩ Resume</div>
+          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>ÔøΩ, ÔøΩ Voice profile</div>
+          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>ÔøΩ, ÔøΩ Saved items</div>
         </div>
       </div>
 
@@ -157,12 +157,12 @@ export default function Profiles() {
         <Link to="/resume" className="card p-4 hover:shadow-lift transition-shadow">
           <FileText className="w-5 h-5 text-brand mb-2" />
           <div className="font-semibold text-sm text-slate-800">Resume</div>
-          <div className="text-xs text-slate-500">{hasResume ? "Base resume saved" : "Not set ‚Äî add yours"}</div>
+          <div className="text-xs text-slate-500">{hasResume ? "Base resume saved" : "Not set. Add yours"}</div>
         </Link>
         <Link to="/resume" className="card p-4 hover:shadow-lift transition-shadow">
           <Mic className="w-5 h-5 text-brand mb-2" />
           <div className="font-semibold text-sm text-slate-800">Voice profile</div>
-          <div className="text-xs text-slate-500">{hasVoice ? "Active ‚Äî AI writes in your tone" : "Not set ‚Äî build one"}</div>
+          <div className="text-xs text-slate-500">{hasVoice ? "Active. We write in your tone" : "Not set. Build one"}</div>
         </Link>
       </div>
 
