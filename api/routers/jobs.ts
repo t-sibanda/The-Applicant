@@ -6,6 +6,7 @@ import { jobs, companies, scrapingLogs } from "../db/schema";
 import { getActiveProfile } from "./profiles";
 import { searchAllSources } from "../services/job-sources";
 import { compAboveMedian, scoreCompany, rankByQuality } from "../services/quality";
+import { scoreRelevance, passesFilters } from "../services/relevance";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
 
@@ -30,6 +31,12 @@ export const jobsRouter = router({
       z.object({
         limit: z.number().min(1).max(100).optional(),
         qualityFilter: z.boolean().optional(),
+        // Filters
+        location: z.string().max(120).optional(),
+        company: z.string().max(200).optional(),
+        keywords: z.string().max(300).optional(),
+        source: z.string().max(80).optional(),
+        minRelevance: z.number().min(0).max(100).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -41,14 +48,29 @@ export const jobsRouter = router({
         });
       }
 
+      const keywordList = (input.keywords ?? "")
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+
       const outcome = await searchAllSources({
         industry: profile.targetIndustry ?? undefined,
-        role: profile.targetRole ?? undefined,
+        role: input.keywords || profile.targetRole || undefined,
         location:
+          input.location ??
           (profile.locationPrefs as { location?: string } | null)?.location ??
           undefined,
-        limit: input.limit ?? 25,
+        limit: input.limit ?? 40,
       });
+
+      const relInputs = {
+        targetRole: profile.targetRole,
+        targetIndustry: profile.targetIndustry,
+        keywords: keywordList,
+        company: input.company,
+        location: input.location,
+      };
+      const minRel = input.minRelevance ?? 45;
 
       const db = getDb();
 
@@ -66,7 +88,22 @@ export const jobsRouter = router({
 
       // Persist new jobs (dedup against existing rows for this profile).
       const saved: Array<{ id: number; qualityScore: number | null }> = [];
+      let discarded = 0;
       for (const raw of outcome.jobs) {
+        // Source filter.
+        if (input.source && raw.sourceName !== input.source) continue;
+        // Hard filters (company/location).
+        if (!passesFilters(raw, relInputs)) {
+          discarded++;
+          continue;
+        }
+        // Relevance: skip low-relevance jobs so irrelevant ones aren't saved.
+        const relevance = scoreRelevance(raw, relInputs);
+        if (relevance < minRel) {
+          discarded++;
+          continue;
+        }
+
         const dupe = await db
           .select({ id: jobs.id })
           .from(jobs)
@@ -107,6 +144,7 @@ export const jobsRouter = router({
             sourceUrl: raw.sourceUrl,
             compensation: raw.compensation ?? undefined,
             qualityScore: quality.qualityScore ?? undefined,
+            relevanceScore: relevance,
             status: JobStatus.NEW,
             dedupeHash: raw.dedupeHash,
           })
@@ -117,6 +155,7 @@ export const jobsRouter = router({
       return {
         found: outcome.jobs.length,
         saved: saved.length,
+        discarded,
         logs: outcome.logs,
       };
     }),

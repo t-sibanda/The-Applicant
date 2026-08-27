@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, authedProcedure } from "../trpc";
 import { chatCompletion, parseJsonFromAI } from "../services/ai";
+import { analyzeAts } from "../services/ats";
 import { requireAIEntitlement } from "../lib/entitlements";
 import {
   parseJobMessages,
@@ -112,16 +113,75 @@ export const aiRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       requireAIEntitlement(ctx.user);
-      const res = await chatCompletion(
-        atsScoreMessages(input.resumeText, input.jobDescription),
-      );
-      if (!res.success || !res.content) return res;
-      const parsed = parseJsonFromAI(res.content);
-      return {
-        success: true as const,
-        content: parsed ? JSON.stringify(parsed) : res.content,
-        error: null,
+
+      // 1) Deterministic analysis (keyword coverage, format, seniority, hard reqs).
+      const det = analyzeAts(input.resumeText, input.jobDescription);
+
+      // 2) AI semantic pass: judge how well the experience actually matches
+      // beyond literal keywords (0-100), plus prioritized fixes.
+      const semanticMsgs = [
+        {
+          role: "system" as const,
+          content:
+            "You are an ATS and recruiting expert. Judge semantic fit between a resume and job beyond literal keywords. Return ONLY valid JSON.",
+        },
+        {
+          role: "user" as const,
+          content: `Assess semantic match. Consider transferable skills, impact, and domain fit.
+RESUME:
+${input.resumeText.slice(0, 6000)}
+
+JOB:
+${input.jobDescription.slice(0, 4000)}
+
+Return JSON:
+{ "semanticScore": 0, "strengths": [], "prioritizedFixes": [] }
+Return ONLY valid JSON.`,
+        },
+      ];
+      const aiRes = await chatCompletion(semanticMsgs, { maxTokens: 1500 });
+      const semantic = aiRes.success && aiRes.content
+        ? parseJsonFromAI<{ semanticScore: number; strengths: string[]; prioritizedFixes: string[] }>(aiRes.content)
+        : null;
+
+      const semanticScore = Math.max(0, Math.min(100, semantic?.semanticScore ?? 60));
+
+      // 3) Combine: deterministic base (80%) + semantic (20%).
+      const overallScore = Math.round(det.baseScore * 0.8 + semanticScore * 0.2);
+
+      // Hard-requirement gap flags.
+      const reqGaps: string[] = [];
+      const resumeLower = input.resumeText.toLowerCase();
+      if (det.hardRequirements.yearsRequired) {
+        reqGaps.push(`Role asks for ~${det.hardRequirements.yearsRequired}+ years — ensure your experience makes this obvious.`);
+      }
+      if (det.hardRequirements.degreeRequired && !resumeLower.includes(det.hardRequirements.degreeRequired.replace(/[^a-z]/g, ""))) {
+        reqGaps.push(`Degree requirement detected (${det.hardRequirements.degreeRequired}); add it if you hold it.`);
+      }
+      for (const cert of det.hardRequirements.certsRequired) {
+        if (!resumeLower.includes(cert)) reqGaps.push(`Certification mentioned: "${cert}" — list it if applicable.`);
+      }
+
+      const report = {
+        overallScore,
+        breakdown: {
+          keywordCoverage: det.keyword.coverage,
+          format: det.format.score,
+          seniority: det.seniority.score,
+          semantic: semanticScore,
+        },
+        keywordMatch: { matched: det.keyword.matched, missing: det.keyword.missing },
+        formatIssues: det.format.issues,
+        seniorityNote: det.seniority.note,
+        hardRequirementGaps: reqGaps,
+        strengths: semantic?.strengths ?? [],
+        improvements: [
+          ...(semantic?.prioritizedFixes ?? []),
+          ...det.keyword.missing.slice(0, 8).map((k) => `Add or emphasize "${k}" if you have it.`),
+        ],
       };
+
+      return { success: true as const, content: JSON.stringify(report), error: null };
     }),
 
   analyzeVoice: authedProcedure

@@ -4,13 +4,15 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   Sparkles, Lock, Wand2, PenTool, BarChart3, MessageSquare,
-  Target, GraduationCap, Copy, Download, Check, Send, Loader2,
+  Target, GraduationCap, Copy, Download, Check, Send, Loader2, Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Assistant } from "@/components/Assistant";
 
-type Mode = "tailor" | "cover" | "ats" | "chat" | "skillgap";
+type Mode = "assistant" | "tailor" | "cover" | "ats" | "chat" | "skillgap";
 
 const TOOLS: { id: Mode; label: string; icon: React.ElementType; desc: string }[] = [
+  { id: "assistant", label: "Assistant", icon: Bot, desc: "Improve resume live" },
   { id: "tailor", label: "Tailor Resume", icon: Wand2, desc: "Customize for a job" },
   { id: "cover", label: "Cover Letter", icon: PenTool, desc: "Generate a letter" },
   { id: "ats", label: "ATS Score", icon: BarChart3, desc: "Check compatibility" },
@@ -23,7 +25,7 @@ export default function Optimizer() {
   const utils = trpc.useUtils();
   const isPaid = user?.subscriptionTier === "basic" || user?.subscriptionTier === "pro";
 
-  const [mode, setMode] = useState<Mode>("tailor");
+  const [mode, setMode] = useState<Mode>("assistant");
   const [jobDescription, setJobDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -154,7 +156,7 @@ export default function Optimizer() {
       <h1 className="page-title">AI Optimizer</h1>
       <p className="page-subtitle mb-5">Tailor resumes, write letters, score ATS fit, plan skills, and get coaching.</p>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-5">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
         {TOOLS.map((t) => {
           const active = mode === t.id;
           return (
@@ -167,6 +169,9 @@ export default function Optimizer() {
         })}
       </div>
 
+      {mode === "assistant" && <Assistant />}
+
+      {mode !== "assistant" && (
       <div className="card p-5 space-y-3">
         {mode === "chat" ? (
           <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} className="textarea min-h-[110px]" placeholder="Ask about interview prep, salary negotiation, career strategy…" />
@@ -185,6 +190,7 @@ export default function Optimizer() {
           {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Working…</> : <><Sparkles className="w-4 h-4" /> {TOOLS.find((t) => t.id === mode)?.label}</>}
         </button>
       </div>
+      )}
 
       {/* Text result (tailor / cover / chat) */}
       {result && (
@@ -208,23 +214,57 @@ export default function Optimizer() {
       {ats && (
         <div className="card p-5 mt-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-sm text-slate-800">ATS Compatibility</h3>
+            <div>
+              <h3 className="font-bold text-sm text-slate-800">ATS Compatibility</h3>
+              <p className="text-[11px] text-slate-400">Multi-factor analysis — guidance, not a specific vendor's engine.</p>
+            </div>
             <div className="text-3xl font-extrabold text-brand">{String((ats as any).overallScore ?? "—")}%</div>
           </div>
+
+          {/* Per-factor bars */}
+          {(ats as any).breakdown && (
+            <div className="space-y-2 mb-4">
+              {Object.entries((ats as any).breakdown as Record<string, number>).map(([k, v]) => (
+                <div key={k}>
+                  <div className="flex justify-between text-[11px] mb-0.5">
+                    <span className="font-semibold text-slate-600 capitalize">{k.replace(/([A-Z])/g, " $1")}</span>
+                    <span className="text-slate-400">{v}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-full bg-brand rounded-full" style={{ width: `${v}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="grid sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl bg-emerald-50 p-3">
               <div className="text-xs font-bold text-emerald-700 mb-1">Matched keywords</div>
-              <div className="flex flex-wrap gap-1">{((ats as any).keywordMatch?.matched ?? []).slice(0, 15).map((k: string, i: number) => <span key={i} className="chip bg-white text-emerald-700">{k}</span>)}</div>
+              <div className="flex flex-wrap gap-1">{((ats as any).keywordMatch?.matched ?? []).slice(0, 18).map((k: string, i: number) => <span key={i} className="chip bg-white text-emerald-700">{k}</span>)}</div>
             </div>
             <div className="rounded-xl bg-rose-50 p-3">
               <div className="text-xs font-bold text-rose-700 mb-1">Missing keywords</div>
-              <div className="flex flex-wrap gap-1">{((ats as any).keywordMatch?.missing ?? []).slice(0, 15).map((k: string, i: number) => <span key={i} className="chip bg-white text-rose-700">{k}</span>)}</div>
+              <div className="flex flex-wrap gap-1">{((ats as any).keywordMatch?.missing ?? []).slice(0, 18).map((k: string, i: number) => <span key={i} className="chip bg-white text-rose-700">{k}</span>)}</div>
             </div>
           </div>
+
+          {((ats as any).hardRequirementGaps ?? []).length > 0 && (
+            <div className="mt-3 rounded-xl bg-amber-50 p-3">
+              <div className="text-xs font-bold text-amber-700 mb-1">Hard requirement checks</div>
+              <ul className="list-disc pl-5 text-sm text-amber-800 space-y-1">{((ats as any).hardRequirementGaps ?? []).map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
+            </div>
+          )}
+          {((ats as any).formatIssues ?? []).length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs font-bold text-slate-600 mb-1">Formatting / parseability</div>
+              <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">{((ats as any).formatIssues ?? []).map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
+            </div>
+          )}
           {((ats as any).improvements ?? []).length > 0 && (
             <div className="mt-3">
-              <div className="text-xs font-bold text-slate-600 mb-1">Suggested improvements</div>
-              <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">{((ats as any).improvements ?? []).map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
+              <div className="text-xs font-bold text-slate-600 mb-1">Prioritized improvements</div>
+              <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">{((ats as any).improvements ?? []).slice(0, 10).map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
             </div>
           )}
         </div>

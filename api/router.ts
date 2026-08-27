@@ -9,6 +9,8 @@ import { resumeRouter } from "./routers/resume";
 import { applicationsRouter } from "./routers/applications";
 import { dashboardRouter } from "./routers/dashboard";
 import { notificationsRouter } from "./routers/notifications";
+import { assistantRouter } from "./routers/assistant";
+import { savedRouter } from "./routers/saved";
 
 export const appRouter = router({
   ping: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
@@ -22,6 +24,8 @@ export const appRouter = router({
   applications: applicationsRouter,
   dashboard: dashboardRouter,
   notifications: notificationsRouter,
+  assistant: assistantRouter,
+  saved: savedRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -140,6 +140,7 @@ export const jobs = pgTable(
     sourceUrl: text("source_url"),
     compensation: jsonb("compensation"),
     qualityScore: integer("quality_score"),
+    relevanceScore: integer("relevance_score"),
     status: varchar("status", { length: 20 }).notNull().default("new"),
     dedupeHash: varchar("dedupe_hash", { length: 64 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -242,8 +243,65 @@ export const scrapingLogs = pgTable("scraping_logs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// ─── conversations (stateful assistant threads) ─────────────────
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    profileId: integer("profile_id").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    title: varchar("title", { length: 200 }).notNull().default("Assistant"),
+    // The current working document the assistant is editing (downloadable).
+    workingDoc: text("working_doc"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ userIdx: index("conversations_user_idx").on(t.userId) }),
+);
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).notNull(), // user | assistant | system
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ convIdx: index("messages_conv_idx").on(t.conversationId) }),
+);
+
+// ─── saved_items (profile hub: saved jobs, links, notes) ────────
+export const savedItems = pgTable(
+  "saved_items",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    profileId: integer("profile_id").references(() => profiles.id, {
+      onDelete: "cascade",
+    }),
+    type: varchar("type", { length: 20 }).notNull(), // job | link | note
+    title: varchar("title", { length: 300 }),
+    url: text("url"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ userIdx: index("saved_items_user_idx").on(t.userId) }),
+);
+
 // ─── Types ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
+export type Conversation = typeof conversations.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type SavedItem = typeof savedItems.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Profile = typeof profiles.$inferSelect;
 export type InsertProfile = typeof profiles.$inferInsert;

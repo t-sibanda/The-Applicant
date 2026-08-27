@@ -1,0 +1,1 @@
+ALTER TABLE "applicant"."jobs" ADD COLUMN "relevance_score" integer;

@@ -15,10 +15,21 @@ export default function Jobs() {
 
   const hasActiveProfile = !!profiles.data?.some((p) => p.isActive);
 
+  const [location, setLocation] = useState("");
+  const [company, setCompany] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [minRelevance, setMinRelevance] = useState(45);
+
   const runSearch = async () => {
     try {
-      const res = await search.mutateAsync({ qualityFilter });
-      toast.success(`Found ${res.found}, saved ${res.saved} new`);
+      const res = await search.mutateAsync({
+        qualityFilter,
+        location: location || undefined,
+        company: company || undefined,
+        keywords: keywords || undefined,
+        minRelevance,
+      });
+      toast.success(`Found ${res.found}, saved ${res.saved} relevant${res.discarded ? `, filtered out ${res.discarded}` : ""}`);
       await utils.jobs.list.invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Search failed");
@@ -65,20 +76,34 @@ export default function Jobs() {
         </div>
       ) : (
         <>
-          <label className="flex items-center gap-2 text-sm text-slate-600 mb-4">
-            <input
-              type="checkbox"
-              checked={qualityFilter}
-              onChange={(e) => setQualityFilter(e.target.checked)}
-            />
-            Prioritize above-average compensation &amp; culture
-          </label>
+          {/* Filter bar */}
+          <div className="card p-4 mb-4 space-y-3">
+            <div className="grid sm:grid-cols-3 gap-2">
+              <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="Keywords / role (e.g. mechanical engineer)" className="input" />
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (e.g. remote, Ohio)" className="input" />
+              <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company" className="input" />
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={qualityFilter} onChange={(e) => setQualityFilter(e.target.checked)} />
+                Prioritize pay &amp; culture
+              </label>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span>Min relevance</span>
+                <input type="range" min={0} max={90} step={5} value={minRelevance} onChange={(e) => setMinRelevance(Number(e.target.value))} />
+                <span className="chip bg-slate-100 text-slate-600 w-10 justify-center">{minRelevance}%</span>
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-2">
             {jobs.data?.map((j) => (
               <div key={j.id} className="card p-4">
                 <div className="flex items-center gap-2">
                   <div className="font-semibold text-sm flex-1 text-slate-800">{j.title}</div>
+                  {j.relevanceScore != null && (
+                    <span className="chip bg-blue-100 text-blue-700">{j.relevanceScore}% match</span>
+                  )}
                   {j.qualityScore != null ? (
                     <span className="chip bg-emerald-100 text-emerald-700">Quality {j.qualityScore}</span>
                   ) : (
