@@ -16,6 +16,36 @@ export function isAIEnabled(): boolean {
   return !!env.ai.apiKey;
 }
 
+/**
+ * Trim message content so total input stays within a character budget
+ * (roughly maps to token limits). The system message is preserved; the
+ * largest user content is truncated first. Prevents provider 413 (TPM) errors
+ * on free tiers with large resumes/job descriptions.
+ */
+function trimMessages(
+  messages: ChatMessage[],
+  maxChars: number,
+): ChatMessage[] {
+  const total = messages.reduce((n, m) => n + m.content.length, 0);
+  if (total <= maxChars) return messages;
+
+  // Proportionally shrink each non-system message to fit the budget.
+  const systemChars = messages
+    .filter((m) => m.role === "system")
+    .reduce((n, m) => n + m.content.length, 0);
+  const budgetForRest = Math.max(1000, maxChars - systemChars);
+  const restChars = total - systemChars || 1;
+  const ratio = budgetForRest / restChars;
+
+  return messages.map((m) => {
+    if (m.role === "system") return m;
+    const keep = Math.max(200, Math.floor(m.content.length * ratio));
+    return m.content.length > keep
+      ? { ...m, content: m.content.slice(0, keep) + "\n…[truncated]" }
+      : m;
+  });
+}
+
 async function callProvider(
   apiUrl: string,
   apiKey: string,
@@ -67,8 +97,16 @@ export async function chatCompletion(
   messages: ChatMessage[],
   opts: { model?: string; maxTokens?: number } = {},
 ): Promise<AIResult> {
-  const maxTokens = opts.maxTokens ?? 6000;
+  // Groq free tier caps total tokens-per-minute (input + output) at ~8000.
+  // Keep the output budget modest so prompt + completion stays under the limit.
+  const maxTokens = opts.maxTokens ?? 3000;
   let lastError: string | null = null;
+
+  // Guard against oversized inputs: trim very long message content so the
+  // input tokens + maxTokens stay under the free-tier TPM ceiling. ~4 chars ≈
+  // 1 token; we cap total input characters to keep input under ~4000 tokens.
+  const MAX_INPUT_CHARS = 16000;
+  const trimmed = trimMessages(messages, MAX_INPUT_CHARS);
 
   if (env.ai.apiKey) {
     try {
@@ -76,7 +114,7 @@ export async function chatCompletion(
         env.ai.apiUrl,
         env.ai.apiKey,
         opts.model || env.ai.model,
-        messages,
+        trimmed,
         maxTokens,
       );
       if (result.success) return result;
@@ -93,7 +131,7 @@ export async function chatCompletion(
         env.ai.fallbackApiUrl,
         env.ai.fallbackApiKey,
         env.ai.fallbackModel || env.ai.model,
-        messages,
+        trimmed,
         maxTokens,
       );
       if (result.success) return result;
