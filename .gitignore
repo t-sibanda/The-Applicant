@@ -24,3 +24,6 @@ db_*.txt
 
 # Office lock/temp files
 ~$*
+
+# Generated decks/reports (regenerate via scripts)
+*.pptx

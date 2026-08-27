@@ -17,6 +17,7 @@ import Career from "@/pages/Career";
 import Learning from "@/pages/Learning";
 import Account from "@/pages/Account";
 import Voice from "@/pages/Voice";
+import Demo from "@/pages/Demo";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +44,7 @@ export default function App() {
       <Toaster position="top-center" richColors />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/demo" element={<Demo />} />
         <Route path="/" element={<Protected><Dashboard /></Protected>} />
         <Route path="/profiles" element={<Protected><Profiles /></Protected>} />
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
