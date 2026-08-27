@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Save, Mic, Loader2, FileText, Sparkles } from "lucide-react";
+import { Save, Mic, Loader2, FileText, Sparkles, Eye, Download, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Resume() {
@@ -25,6 +25,7 @@ export default function Resume() {
   const [phone, setPhone] = useState("");
   const [text, setText] = useState("");
   const [voiceSample, setVoiceSample] = useState("");
+  const [viewing, setViewing] = useState<{ label: string; content: string } | null>(null);
 
   useEffect(() => {
     if (current) {
@@ -118,16 +119,46 @@ export default function Resume() {
         <div className="card p-5 mt-4">
           <h3 className="font-bold text-sm text-slate-800 mb-3">Saved documents</h3>
           <div className="space-y-2">
-            {versions.data?.map((v) => (
-              <div key={v.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                <FileText className="w-4 h-4 text-brand" />
-                <div className="flex-1 text-sm text-slate-700">
-                  {v.tailoredResumeText ? "Tailored resume" : v.coverLetter ? "Cover letter" : "Document"}
-                  {v.jobRef && <span className="text-slate-400"> · {v.jobRef}</span>}
+            {versions.data?.map((v) => {
+              const content = v.tailoredResumeText || v.coverLetter || "";
+              const label = v.tailoredResumeText ? "Tailored resume" : v.coverLetter ? "Cover letter" : "Document";
+              return (
+                <div key={v.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                  <FileText className="w-4 h-4 text-brand shrink-0" />
+                  <div className="flex-1 text-sm text-slate-700">
+                    {label}
+                    {v.jobRef && <span className="text-slate-400"> · {v.jobRef}</span>}
+                  </div>
+                  <span className="text-xs text-slate-400">{new Date(v.createdAt ?? Date.now()).toLocaleDateString()}</span>
+                  <button onClick={() => setViewing({ label, content })} className="btn-ghost h-8 px-3 text-xs"><Eye className="w-3.5 h-3.5" /> View</button>
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `${label.replace(/\s+/g, "_")}.txt`;
+                      a.click();
+                    }}
+                    className="btn-ghost h-8 px-3 text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </button>
                 </div>
-                <span className="text-xs text-slate-400">{new Date(v.createdAt ?? Date.now()).toLocaleDateString()}</span>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Document viewer modal */}
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setViewing(null)}>
+          <div className="card max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <h3 className="font-bold text-sm text-slate-800">{viewing.label}</h3>
+              <button onClick={() => setViewing(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 overflow-y-auto whitespace-pre-wrap text-sm text-slate-700">{viewing.content || "(empty)"}</div>
           </div>
         </div>
       )}

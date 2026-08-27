@@ -89,6 +89,7 @@ export const jobsRouter = router({
       // Persist new jobs (dedup against existing rows for this profile).
       const saved: Array<{ id: number; qualityScore: number | null }> = [];
       let discarded = 0;
+      let duplicates = 0;
       for (const raw of outcome.jobs) {
         // Source filter.
         if (input.source && raw.sourceName !== input.source) continue;
@@ -114,7 +115,7 @@ export const jobsRouter = router({
             ),
           )
           .limit(1);
-        if (dupe[0]) continue;
+        if (dupe[0]) { duplicates++; continue; }
 
         const company = await upsertCompany(
           raw.companyName,
@@ -156,22 +157,53 @@ export const jobsRouter = router({
         found: outcome.jobs.length,
         saved: saved.length,
         discarded,
+        duplicates,
         logs: outcome.logs,
       };
     }),
 
   list: authedProcedure
-    .input(z.object({ qualityFilter: z.boolean().optional() }).optional())
+    .input(
+      z.object({
+        qualityFilter: z.boolean().optional(),
+        sort: z.enum(["recent", "relevance", "quality"]).optional(),
+        withCompensationOnly: z.boolean().optional(),
+        status: z.enum([JobStatus.NEW, JobStatus.SAVED, JobStatus.APPLIED]).optional(),
+      }).optional(),
+    )
     .query(async ({ ctx, input }) => {
       const profile = await getActiveProfile(ctx.user.id);
       if (!profile) return [];
-      const rows = await getDb()
+      let rows = await getDb()
         .select()
         .from(jobs)
         .where(and(eq(jobs.userId, ctx.user.id), eq(jobs.profileId, profile.id)))
         .orderBy(desc(jobs.createdAt));
-      return input?.qualityFilter ? rankByQuality(rows) : rows;
+
+      if (input?.withCompensationOnly) {
+        rows = rows.filter((r) => !!r.compensation);
+      }
+      if (input?.status) {
+        rows = rows.filter((r) => r.status === input.status);
+      }
+
+      const sort = input?.sort ?? (input?.qualityFilter ? "quality" : "recent");
+      if (sort === "quality") return rankByQuality(rows);
+      if (sort === "relevance")
+        return [...rows].sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
+      return rows; // recent (already ordered by createdAt desc)
     }),
+
+  // Delete all jobs for the active profile (a true "clear & refresh").
+  clear: authedProcedure.mutation(async ({ ctx }) => {
+    const profile = await getActiveProfile(ctx.user.id);
+    if (!profile) return { cleared: 0 };
+    const rows = await getDb()
+      .delete(jobs)
+      .where(and(eq(jobs.userId, ctx.user.id), eq(jobs.profileId, profile.id)))
+      .returning({ id: jobs.id });
+    return { cleared: rows.length };
+  }),
 
   setStatus: authedProcedure
     .input(
