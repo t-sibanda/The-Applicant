@@ -165,15 +165,41 @@ export async function chatCompletion(
   };
 }
 
-/** Utility: strip markdown code fences and parse JSON from an AI response. */
+/**
+ * Resilient JSON extraction from an AI response. Handles:
+ *  - markdown code fences
+ *  - extra prose/reasoning around the JSON
+ *  - the first balanced {...} object anywhere in the text
+ */
 export function parseJsonFromAI<T = unknown>(raw: string): T | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/```json\n?/gi, "").replace(/```/g, "").trim();
+
+  // Fast path: whole string is JSON.
   try {
-    const cleaned = raw
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
     return JSON.parse(cleaned) as T;
   } catch {
-    return null;
+    // fall through to extraction
   }
+
+  // Extract the first balanced JSON object.
+  const start = cleaned.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        const candidate = cleaned.slice(start, i + 1);
+        try {
+          return JSON.parse(candidate) as T;
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
 }

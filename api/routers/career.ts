@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
 import { resumeProfiles, profiles } from "../db/schema";
-import { chatCompletion } from "../services/ai";
+import { chatCompletion, parseJsonFromAI } from "../services/ai";
 import { requireAIEntitlement } from "../lib/entitlements";
 
 export const careerRouter = router({
@@ -54,11 +54,9 @@ Return ONLY valid JSON.`,
         { maxTokens: 3000 },
       );
       if (!res.success || !res.content) return { success: false as const, error: res.error };
-      try {
-        const parsed = JSON.parse(res.content.replace(/```json\n?|```/g, "").trim());
-        return { success: true as const, plan: parsed };
-      } catch {
-        return { success: false as const, error: "Could not parse AI output." };
-      }
+      const parsed = parseJsonFromAI(res.content);
+      return parsed
+        ? { success: true as const, plan: parsed }
+        : { success: false as const, error: "The AI response could not be read. Please try again." };
     }),
 });

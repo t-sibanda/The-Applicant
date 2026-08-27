@@ -39,11 +39,8 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-5xl">
-      {/* Hero — award-style dark canvas with warm accent glow */}
-      <div className="hero-dark rounded-3xl p-8 md:p-10 text-white mb-6 animate-fade-in">
-        {/* accent circle behind the content, echoing editorial hero layouts */}
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 w-56 h-56 rounded-full hidden md:block"
-          style={{ background: "radial-gradient(circle, rgba(245,184,0,0.35), rgba(245,184,0,0.05) 70%)" }} />
+      {/* Hero — blends into the immersive page canvas */}
+      <div className="p-2 md:p-4 text-white mb-6 animate-fade-in relative">
         <div className="relative max-w-2xl">
           <div className="flex items-center gap-2 text-[var(--gold)] text-xs font-semibold uppercase tracking-[0.15em] mb-3">
             <Sparkles className="w-4 h-4" /> Welcome back
@@ -106,7 +103,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick actions */}
-      <h2 className="font-serif-display text-xl text-slate-800 mb-3">Jump back in</h2>
+      <h2 className="font-serif-display text-xl text-white mb-3">Jump back in</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {QUICK.map((q, i) => (
           <Link key={q.to} to={q.to} className={`tile animate-fade-in stagger-${i + 1}`} style={{ background: q.grad }}>

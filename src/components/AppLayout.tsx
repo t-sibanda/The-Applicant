@@ -128,7 +128,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="min-h-[calc(100vh-3rem)] rounded-3xl bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_10px_40px_rgba(15,23,42,0.12)] p-6 md:p-8 animate-fade-in">
+        <div className="page-canvas min-h-[calc(100vh-3rem)] rounded-3xl p-6 md:p-8 animate-fade-in">
           {children}
         </div>
       </main>

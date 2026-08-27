@@ -45,15 +45,28 @@ export default function Portfolio() {
     toast.success("Portfolio saved");
   };
 
+  const [genError, setGenError] = useState<string | null>(null);
+
   const aiGenerate = async () => {
-    const res = await generate.mutateAsync();
-    if (!res.success) return toast.error(res.error ?? "Failed");
-    const d = res.data as { headline?: string; about?: string; accomplishments?: string[]; skills?: string[] };
-    if (d.headline) setHeadline(d.headline);
-    if (d.about) setAbout(d.about);
-    if (d.accomplishments) setAccomplishments(d.accomplishments);
-    if (d.skills) setSkills(d.skills);
-    toast.success("Generated in your voice — edit anything you like");
+    setGenError(null);
+    try {
+      const res = await generate.mutateAsync();
+      if (!res.success) {
+        setGenError(res.error ?? "Generation failed. Please try again.");
+        toast.error(res.error ?? "Failed");
+        return;
+      }
+      const d = res.data as { headline?: string; about?: string; accomplishments?: string[]; skills?: string[] };
+      if (d.headline) setHeadline(d.headline);
+      if (d.about) setAbout(d.about);
+      if (d.accomplishments) setAccomplishments(d.accomplishments);
+      if (d.skills) setSkills(d.skills);
+      toast.success("Generated in your voice — edit anything you like");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Generation failed";
+      setGenError(msg);
+      toast.error(msg);
+    }
   };
 
   if (preview) {
@@ -87,6 +100,14 @@ export default function Portfolio() {
           {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate
         </button>
       </div>
+      {genError && (
+        <div className="rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm p-3 mb-4">
+          {genError}
+          {/add your resume/i.test(genError) && (
+            <a href="/resume" className="underline font-semibold ml-1">Go to Resume →</a>
+          )}
+        </div>
+      )}
 
       {/* Style controls */}
       <div className="card p-4 mb-4 grid sm:grid-cols-2 gap-4">

@@ -137,6 +137,20 @@ h1, h2, h3, .font-display {
     letter-spacing: -0.015em;
   }
 
+  /* Every page's content panel: black fading into a warm golden dusk, with a
+     soft accent glow — matching the dashboard hero. White cards float on top. */
+  .page-canvas {
+    background:
+      radial-gradient(600px 400px at 92% 8%, rgba(245, 184, 0, 0.30), transparent 55%),
+      linear-gradient(160deg, #0b0b0f 0%, #191520 30%, #3a2f1e 62%, #6b5327 82%, #a67c2e 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.28);
+    position: relative;
+  }
+  /* On the dark canvas, page headings/body go light for legibility. */
+  .page-canvas .page-title { color: #ffffff; }
+  .page-canvas .page-subtitle { color: rgba(255, 255, 255, 0.6); }
+
   .tile {
     @apply relative overflow-hidden rounded-2xl p-4 transition-all duration-200
       hover:-translate-y-0.5 hover:shadow-lift cursor-pointer;
