@@ -37,16 +37,19 @@ export default function Dashboard() {
   const s = stats.data;
   const isNew = !profiles.isLoading && (profiles.data?.length ?? 0) === 0;
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
   return (
     <div className="max-w-5xl">
       {/* Hero — blends into the immersive page canvas */}
       <div className="p-2 md:p-4 text-white mb-6 animate-fade-in relative">
         <div className="relative max-w-2xl">
           <div className="flex items-center gap-2 text-[var(--gold)] text-xs font-semibold uppercase tracking-[0.15em] mb-3">
-            <Sparkles className="w-4 h-4" /> Welcome back
+            <Sparkles className="w-4 h-4" /> {greeting}
           </div>
           <h1 className="hero-serif text-3xl md:text-5xl">
-            {user?.name ? <>Hi {user.name.split(" ")[0]}, let's<br />land your next role.</> : "Land your next role with confidence."}
+            {user?.name ? <>{user.name.split(" ")[0]}, let's land<br />your next role.</> : "Let's land your next role."}
           </h1>
           <p className="text-white/60 text-sm md:text-base mt-4 max-w-lg leading-relaxed">
             Your AI-powered command center — find better jobs, tailor every application, and build a standout profile that markets you.
