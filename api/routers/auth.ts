@@ -1,7 +1,17 @@
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, authedProcedure } from "../trpc";
 import { effectivePlan } from "../lib/entitlements";
+import { getDb } from "../db/client";
+import {
+  users,
+  profiles as profilesTable,
+  resumeProfiles,
+  applications,
+  jobs as jobsTable,
+  savedItems,
+} from "../db/schema";
 import {
   findUserByEmail,
   createUser,
@@ -137,4 +147,87 @@ export const authRouter = router({
     );
     return { success: true };
   }),
+
+  // ── Account settings ──
+  updateAccount: authedProcedure
+    .input(
+      z.object({
+        displayName: z.string().min(1).max(120).optional(),
+        email: z.string().email().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // If changing email, ensure it isn't taken by someone else.
+      if (input.email && input.email.toLowerCase() !== ctx.user.email) {
+        const existing = await findUserByEmail(input.email);
+        if (existing && existing.id !== ctx.user.id) {
+          throw new TRPCError({ code: "CONFLICT", message: "That email is already in use." });
+        }
+      }
+      const patch: Record<string, unknown> = {};
+      if (input.displayName) patch.displayName = input.displayName;
+      if (input.email) patch.email = input.email.toLowerCase();
+      const rows = await getDb()
+        .update(users)
+        .set(patch)
+        .where(eq(users.id, ctx.user.id))
+        .returning();
+      return publicUser(rows[0]);
+    }),
+
+  changePassword: authedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string(),
+        newPassword: z.string().min(8).max(128),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const fresh = await findUserByEmail(ctx.user.email);
+      if (!fresh || !(await verifyPassword(input.currentPassword, fresh.passwordHash))) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Current password is incorrect." });
+      }
+      const passwordHash = await hashPassword(input.newPassword);
+      await getDb().update(users).set({ passwordHash }).where(eq(users.id, ctx.user.id));
+      return { success: true };
+    }),
+
+  // Export all of the user's data (GDPR-style portability).
+  exportData: authedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const [profilesRows, resumes, apps, jobsRows, savedRows] = await Promise.all([
+      db.select().from(profilesTable).where(eq(profilesTable.userId, uid)),
+      db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, uid)),
+      db.select().from(applications).where(eq(applications.userId, uid)),
+      db.select().from(jobsTable).where(eq(jobsTable.userId, uid)),
+      db.select().from(savedItems).where(eq(savedItems.userId, uid)),
+    ]);
+    return {
+      account: publicUser(ctx.user),
+      profiles: profilesRows,
+      resumes,
+      applications: apps,
+      jobs: jobsRows,
+      savedItems: savedRows,
+      exportedAt: new Date().toISOString(),
+    };
+  }),
+
+  // Permanently delete the account and all owned data (cascades via FKs).
+  deleteAccount: authedProcedure
+    .input(z.object({ password: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const fresh = await findUserByEmail(ctx.user.email);
+      if (!fresh || !(await verifyPassword(input.password, fresh.passwordHash))) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Password is incorrect." });
+      }
+      await getDb().delete(users).where(eq(users.id, ctx.user.id));
+      // Clear the session cookie.
+      ctx.resHeaders.append(
+        "set-cookie",
+        `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax;`,
+      );
+      return { success: true };
+    }),
 });

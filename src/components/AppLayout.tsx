@@ -98,10 +98,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-[var(--border)] pt-3 mt-2">
-          <div className="px-3 pb-2">
+          <NavLink to="/account" className="block px-3 pb-2 rounded-xl hover:bg-slate-50 py-1">
             <div className="text-xs font-semibold text-slate-700 truncate">
               {user?.name || user?.email}
             </div>
+            <div className="text-[10px] text-slate-400">Account settings</div>
             <div className="flex items-center gap-1.5 mt-1">
               <span
                 className={cn(
@@ -116,7 +117,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {tier} plan
               </span>
             </div>
-          </div>
+          </NavLink>
           <button
             onClick={doLogout}
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50 w-full transition-colors"
