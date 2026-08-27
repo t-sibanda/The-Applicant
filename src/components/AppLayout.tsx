@@ -16,6 +16,7 @@ import {
   GraduationCap,
   BookOpen,
   Mic,
+  Play,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +33,7 @@ const nav = [
   { to: "/career", label: "Career Builder", icon: GraduationCap },
   { to: "/learning", label: "Learning Center", icon: BookOpen },
   { to: "/applications", label: "Applications", icon: Send },
+  { to: "/demo", label: "Product Demo", icon: Play },
   { to: "/support", label: "Help & Support", icon: LifeBuoy },
   { to: "/billing", label: "Billing", icon: CreditCard },
 ];
