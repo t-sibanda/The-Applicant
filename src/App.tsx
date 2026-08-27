@@ -12,6 +12,8 @@ import Applications from "@/pages/Applications";
 import Billing from "@/pages/Billing";
 import Admin from "@/pages/Admin";
 import Support from "@/pages/Support";
+import Portfolio from "@/pages/Portfolio";
+import Career from "@/pages/Career";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +45,8 @@ export default function App() {
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
         <Route path="/resume" element={<Protected><Resume /></Protected>} />
         <Route path="/optimizer" element={<Protected><Optimizer /></Protected>} />
+        <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
+        <Route path="/career" element={<Protected><Career /></Protected>} />
         <Route path="/applications" element={<Protected><Applications /></Protected>} />
         <Route path="/support" element={<Protected><Support /></Protected>} />
         <Route path="/billing" element={<Protected><Billing /></Protected>} />

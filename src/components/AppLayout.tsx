@@ -12,6 +12,8 @@ import {
   LogOut,
   LifeBuoy,
   Sparkles,
+  LayoutTemplate,
+  GraduationCap,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +25,8 @@ const nav = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/resume", label: "Resume", icon: FileText },
   { to: "/optimizer", label: "AI Optimizer", icon: Bot },
+  { to: "/portfolio", label: "Portfolio", icon: LayoutTemplate },
+  { to: "/career", label: "Career Builder", icon: GraduationCap },
   { to: "/applications", label: "Applications", icon: Send },
   { to: "/support", label: "Help & Support", icon: LifeBuoy },
   { to: "/billing", label: "Billing", icon: CreditCard },

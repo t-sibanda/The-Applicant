@@ -297,8 +297,29 @@ export const savedItems = pgTable(
   (t) => ({ userIdx: index("saved_items_user_idx").on(t.userId) }),
 );
 
+// ─── portfolios (self-marketing pages) ──────────────────────────
+export const portfolios = pgTable("portfolios", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  headline: varchar("headline", { length: 200 }),
+  about: text("about"),
+  // JSON arrays of structured content.
+  accomplishments: jsonb("accomplishments"),
+  projects: jsonb("projects"),
+  publications: jsonb("publications"),
+  skills: jsonb("skills"),
+  links: jsonb("links"),
+  template: varchar("template", { length: 40 }).notNull().default("modern"),
+  accent: varchar("accent", { length: 20 }).notNull().default("#ff6b35"),
+  visibility: jsonb("visibility"), // which sections to show
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 // ─── Types ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
+export type Portfolio = typeof portfolios.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type SavedItem = typeof savedItems.$inferSelect;
