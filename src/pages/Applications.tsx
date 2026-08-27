@@ -170,7 +170,29 @@ export default function Applications() {
               <div className="ml-auto flex gap-2">
                 <button onClick={markReady} className="btn-ghost"><CheckCircle className="w-4 h-4" /> Mark ready</button>
                 {reviewApp.jobUrl && (
-                  <a href={reviewApp.jobUrl} target="_blank" rel="noreferrer" onClick={async () => { await saveDraft(); await updateStatus.mutateAsync({ id: reviewApp.id, status: "applied" as never }); await utils.applications.list.invalidate(); }} className="btn-primary no-underline"><ExternalLink className="w-4 h-4" /> Apply on site</a>
+                  <button
+                    onClick={async () => {
+                      // Apply kit (ToS-safe): save edits, copy the current tab's
+                      // material to clipboard, open the posting, and mark applied
+                      // after the user confirms they submitted.
+                      await saveDraft();
+                      const material = rTab === "resume" ? rResume : rCover;
+                      try { await navigator.clipboard.writeText(material); } catch { /* clipboard may be blocked */ }
+                      window.open(reviewApp.jobUrl!, "_blank", "noopener");
+                      toast.success(`${rTab === "resume" ? "Resume" : "Cover letter"} copied — paste it on the site`);
+                      // Confirm submission to move the pipeline forward.
+                      setTimeout(async () => {
+                        if (confirm("Did you submit your application on the site?")) {
+                          await updateStatus.mutateAsync({ id: reviewApp.id, status: "applied" as never });
+                          await utils.applications.list.invalidate();
+                          setReviewId(null);
+                        }
+                      }, 800);
+                    }}
+                    className="btn-primary"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Apply kit (open + copy)
+                  </button>
                 )}
               </div>
             </div>

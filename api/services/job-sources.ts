@@ -144,7 +144,145 @@ const adzunaSource: JobSource = {
   },
 };
 
-const registry: JobSource[] = [remotiveSource, adzunaSource];
+// ── Arbeitnow (free public API, no key) ──
+const arbeitnowSource: JobSource = {
+  name: "arbeitnow",
+  isEnabled: () => true,
+  async search(query) {
+    const res = await fetch("https://www.arbeitnow.com/api/job-board-api", {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Arbeitnow error ${res.status}`);
+    const data = (await res.json()) as {
+      data?: Array<{
+        title: string;
+        company_name: string;
+        description: string;
+        url: string;
+        created_at?: number;
+      }>;
+    };
+    const term = (query.role || query.industry || "").toLowerCase();
+    return (data.data ?? [])
+      .filter((j) => !term || `${j.title} ${j.description}`.toLowerCase().includes(term))
+      .slice(0, query.limit ?? 25)
+      .map((j) => ({
+        title: j.title,
+        companyName: j.company_name,
+        description: (j.description ?? "").replace(/<[^>]*>/g, "").slice(0, 4000),
+        sourceName: "arbeitnow",
+        sourceUrl: j.url,
+        compensation: null,
+        postedDate: j.created_at ? new Date(j.created_at * 1000).toISOString() : null,
+        dedupeHash: hashJob(j.title, j.company_name, j.url),
+      }));
+  },
+};
+
+// ── The Muse (free public API, no key) ──
+const theMuseSource: JobSource = {
+  name: "themuse",
+  isEnabled: () => true,
+  async search(query) {
+    const params = new URLSearchParams({ page: "0" });
+    if (query.location) params.set("location", query.location);
+    const res = await fetch(`https://www.themuse.com/api/public/jobs?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`The Muse error ${res.status}`);
+    const data = (await res.json()) as {
+      results?: Array<{
+        name: string;
+        company?: { name?: string };
+        contents?: string;
+        refs?: { landing_page?: string };
+        publication_date?: string;
+      }>;
+    };
+    const term = (query.role || query.industry || "").toLowerCase();
+    return (data.results ?? [])
+      .filter((j) => !term || j.name.toLowerCase().includes(term))
+      .slice(0, query.limit ?? 25)
+      .map((j) => {
+        const company = j.company?.name ?? "Unknown";
+        const url = j.refs?.landing_page ?? "";
+        return {
+          title: j.name,
+          companyName: company,
+          description: (j.contents ?? "").replace(/<[^>]*>/g, "").slice(0, 4000),
+          sourceName: "themuse",
+          sourceUrl: url,
+          compensation: null,
+          postedDate: j.publication_date ?? null,
+          dedupeHash: hashJob(j.name, company, url),
+        };
+      });
+  },
+};
+
+// ── USAJOBS (official US government API, requires a free API key + email) ──
+const usaJobsSource: JobSource = {
+  name: "usajobs",
+  isEnabled: () => !!env.jobs.usaJobsApiKey,
+  async search(query) {
+    const params = new URLSearchParams({
+      Keyword: query.role || query.industry || "",
+      ResultsPerPage: String(query.limit ?? 25),
+    });
+    if (query.location) params.set("LocationName", query.location);
+    const res = await fetch(`https://data.usajobs.gov/api/search?${params.toString()}`, {
+      headers: {
+        Host: "data.usajobs.gov",
+        "User-Agent": "the-applicant@theapplicant.local",
+        "Authorization-Key": env.jobs.usaJobsApiKey,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) throw new Error(`USAJOBS error ${res.status}`);
+    const data = (await res.json()) as {
+      SearchResult?: {
+        SearchResultItems?: Array<{
+          MatchedObjectDescriptor?: {
+            PositionTitle?: string;
+            OrganizationName?: string;
+            PositionURI?: string;
+            UserArea?: { Details?: { JobSummary?: string } };
+            PositionRemuneration?: Array<{ MinimumRange?: string; MaximumRange?: string }>;
+            PublicationStartDate?: string;
+          };
+        }>;
+      };
+    };
+    const items = data.SearchResult?.SearchResultItems ?? [];
+    return items.map((it) => {
+      const d = it.MatchedObjectDescriptor ?? {};
+      const title = d.PositionTitle ?? "Position";
+      const company = d.OrganizationName ?? "US Government";
+      const url = d.PositionURI ?? "";
+      const rem = d.PositionRemuneration?.[0];
+      return {
+        title,
+        companyName: company,
+        description: (d.UserArea?.Details?.JobSummary ?? "").slice(0, 4000),
+        sourceName: "usajobs",
+        sourceUrl: url,
+        compensation: rem?.MinimumRange
+          ? { min: Number(rem.MinimumRange), max: Number(rem.MaximumRange), currency: "USD" }
+          : null,
+        postedDate: d.PublicationStartDate ?? null,
+        dedupeHash: hashJob(title, company, url),
+      };
+    });
+  },
+};
+
+const registry: JobSource[] = [
+  remotiveSource,
+  adzunaSource,
+  arbeitnowSource,
+  theMuseSource,
+  usaJobsSource,
+];
 
 export function enabledSources(): JobSource[] {
   return registry.filter((s) => s.isEnabled());

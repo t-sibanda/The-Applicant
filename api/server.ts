@@ -43,6 +43,23 @@ app.post("/api/stripe/webhook", async (c) => {
   return handled ? c.json({ received: true }) : c.json({ error: "ignored" }, 400);
 });
 
+// ─── CORS for the API (enables the browser extension to call with creds) ──
+// Reflects the request origin and allows credentials. The SPA is same-origin
+// (no CORS needed); this exists so the autofill extension — running on
+// third-party application pages — can fetch the user's payload securely.
+app.use("/api/trpc/*", async (c, next) => {
+  const origin = c.req.header("origin");
+  if (origin) {
+    c.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Credentials", "true");
+    c.header("Access-Control-Allow-Headers", "content-type, authorization");
+    c.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    c.header("Vary", "Origin");
+  }
+  if (c.req.method === "OPTIONS") return c.body(null, 204);
+  await next();
+});
+
 // ─── tRPC ────────────────────────────────────────────────────────
 app.use("/api/trpc/*", (c) =>
   fetchRequestHandler({

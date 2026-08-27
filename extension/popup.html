@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: system-ui, sans-serif; width: 300px; margin: 0; padding: 16px; color: #0f172a; }
+      h1 { font-size: 15px; margin: 0 0 2px; }
+      h1 span { color: #ff6b35; }
+      p { font-size: 12px; color: #64748b; margin: 0 0 12px; }
+      input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; margin-bottom: 8px; }
+      button { width: 100%; height: 38px; border: 0; border-radius: 8px; background: #ff6b35; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+      button.secondary { background: #f1f5f9; color: #334155; margin-top: 8px; }
+      .status { font-size: 12px; margin-top: 10px; }
+      .ok { color: #059669; }
+      .err { color: #e11d48; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>The <span>Applicant</span> Autofill</h1>
+    <p>Fill this application with your profile. You review &amp; submit — never automatic.</p>
+
+    <div id="setup">
+      <input id="apiBase" placeholder="Your app URL (https://…)" />
+      <button id="connect">Connect to my account</button>
+      <div class="status">Sign in to The Applicant in a browser tab first, then connect.</div>
+    </div>
+
+    <div id="ready" class="hidden">
+      <button id="fill">Fill this page</button>
+      <button id="copyResume" class="secondary">Copy tailored resume</button>
+      <button id="copyCover" class="secondary">Copy cover letter</button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>
