@@ -9,6 +9,10 @@ import {
   atsScoreMessages,
   voiceAnalysisMessages,
   interviewQuestionMessages,
+  followUpMessages,
+  networkingMessages,
+  interviewEvalMessages,
+  skillGapMessages,
   type CompanyStyle,
 } from "../services/prompts";
 
@@ -151,5 +155,77 @@ export const aiRouter = router({
     .mutation(async ({ ctx, input }) => {
       requireAIEntitlement(ctx.user);
       return chatCompletion(input.messages);
+    }),
+
+  followUpEmail: authedProcedure
+    .input(
+      z.object({
+        stage: z.string().min(1),
+        company: z.string().min(1),
+        role: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAIEntitlement(ctx.user);
+      return chatCompletion(followUpMessages(input));
+    }),
+
+  networkingMessage: authedProcedure
+    .input(
+      z.object({
+        targetRole: z.string().min(1),
+        targetCompany: z.string().min(1),
+        background: z.string().min(1),
+        messageType: z.enum([
+          "linkedin_connection",
+          "informational_interview",
+          "warm_intro",
+        ]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAIEntitlement(ctx.user);
+      return chatCompletion(networkingMessages(input));
+    }),
+
+  evaluateAnswer: authedProcedure
+    .input(
+      z.object({
+        question: z.string().min(1),
+        answer: z.string().min(1),
+        role: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAIEntitlement(ctx.user);
+      const res = await chatCompletion(interviewEvalMessages(input));
+      if (!res.success || !res.content) return res;
+      const parsed = parseJsonFromAI(res.content);
+      return {
+        success: true as const,
+        content: parsed ? JSON.stringify(parsed) : res.content,
+        error: null,
+      };
+    }),
+
+  skillGap: authedProcedure
+    .input(
+      z.object({
+        resume: z.string().min(1),
+        jobDescription: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAIEntitlement(ctx.user);
+      const res = await chatCompletion(
+        skillGapMessages(input.resume, input.jobDescription),
+      );
+      if (!res.success || !res.content) return res;
+      const parsed = parseJsonFromAI(res.content);
+      return {
+        success: true as const,
+        content: parsed ? JSON.stringify(parsed) : res.content,
+        error: null,
+      };
     }),
 });

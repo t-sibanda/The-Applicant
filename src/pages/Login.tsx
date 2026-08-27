@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -32,29 +33,32 @@ export default function Login() {
   const busy = loginMut.isPending || registerMut.isPending;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[var(--bg)] to-brand-light">
+      <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-extrabold">
+          <div className="w-12 h-12 rounded-2xl bg-brand flex items-center justify-center mx-auto mb-3">
+            <Sparkles className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight">
             The <span className="text-brand">Applicant</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">AI-Powered Job Hunt Platform</p>
+          <p className="text-sm text-slate-500 mt-1">Your AI-powered job hunt companion</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <div className="flex gap-2 mb-5">
+        <div className="card p-6">
+          <div className="flex gap-2 mb-5 bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setMode("login")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold ${
-                mode === "login" ? "bg-brand text-white" : "bg-slate-100 text-slate-600"
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                mode === "login" ? "bg-white text-brand shadow-sm" : "text-slate-500"
               }`}
             >
               Sign In
             </button>
             <button
               onClick={() => setMode("register")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold ${
-                mode === "register" ? "bg-brand text-white" : "bg-slate-100 text-slate-600"
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                mode === "register" ? "bg-white text-brand shadow-sm" : "text-slate-500"
               }`}
             >
               Get Started
@@ -68,7 +72,7 @@ export default function Login() {
                 <input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full mt-1 h-10 px-3 rounded-lg border border-slate-200 text-sm"
+                  className="input mt-1"
                   placeholder="Jane Doe"
                 />
               </div>
@@ -80,7 +84,7 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full mt-1 h-10 px-3 rounded-lg border border-slate-200 text-sm"
+                className="input mt-1"
                 placeholder="you@example.com"
               />
             </div>
@@ -92,24 +96,21 @@ export default function Login() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full mt-1 h-10 px-3 rounded-lg border border-slate-200 text-sm"
+                className="input mt-1"
                 placeholder="••••••••"
               />
               {mode === "register" && (
-                <p className="text-[11px] text-slate-400 mt-1">
-                  At least 8 characters.
-                </p>
+                <p className="text-[11px] text-slate-400 mt-1">At least 8 characters.</p>
               )}
             </div>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full h-11 rounded-lg bg-brand text-white font-semibold disabled:opacity-60"
-            >
+            <button type="submit" disabled={busy} className="btn-primary w-full">
               {busy ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
         </div>
+        <p className="text-center text-xs text-slate-400 mt-4">
+          Find better jobs, tailor your resume, and land the interview.
+        </p>
       </div>
     </div>
   );

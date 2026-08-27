@@ -178,3 +178,99 @@ export function interviewQuestionMessages(
     { role: "user", content: "Ask the question." },
   ];
 }
+
+export function followUpMessages(args: {
+  stage: string;
+  company: string;
+  role: string;
+}): ChatMessage[] {
+  return [
+    {
+      role: "system",
+      content:
+        "You write concise, effective job-application follow-up emails that get responses without being pushy.",
+    },
+    {
+      role: "user",
+      content: `Write a follow-up email.
+Stage: ${args.stage}
+Company: ${args.company}
+Role: ${args.role}
+
+Include a subject line prefixed with "Subject: ", then a blank line, then a brief 3-5 sentence body with a soft call to action.`,
+    },
+  ];
+}
+
+export function networkingMessages(args: {
+  targetRole: string;
+  targetCompany: string;
+  background: string;
+  messageType: string;
+}): ChatMessage[] {
+  return [
+    {
+      role: "system",
+      content:
+        "You write authentic, specific networking messages that get responses. Prioritize brevity.",
+    },
+    {
+      role: "user",
+      content: `Write a ${args.messageType} networking message.
+Target: ${args.targetRole} at ${args.targetCompany}
+My background: ${args.background}
+
+Keep it genuine, specific, and concise. For LinkedIn connections, stay under 300 characters.`,
+    },
+  ];
+}
+
+export function interviewEvalMessages(args: {
+  question: string;
+  answer: string;
+  role: string;
+}): ChatMessage[] {
+  return [
+    {
+      role: "system",
+      content:
+        "You are an expert interviewer giving constructive feedback. Return ONLY valid JSON.",
+    },
+    {
+      role: "user",
+      content: `Evaluate this interview answer for a ${args.role} role.
+QUESTION: ${args.question}
+ANSWER: ${args.answer}
+
+Return JSON:
+{ "score": 0, "maxScore": 10, "feedback": "", "strengths": [], "improvements": [], "improvedAnswer": "" }
+Return ONLY valid JSON.`,
+    },
+  ];
+}
+
+export function skillGapMessages(
+  resume: string,
+  jobDescription: string,
+): ChatMessage[] {
+  return [
+    {
+      role: "system",
+      content:
+        "You are a career development advisor. Identify skill gaps and a learning plan. Return ONLY valid JSON.",
+    },
+    {
+      role: "user",
+      content: `Compare this resume to the job and identify gaps.
+RESUME:
+${resume}
+
+JOB:
+${jobDescription}
+
+Return JSON:
+{ "matchingSkills": [], "missingSkills": [], "learningPlan": [{"skill":"","how":"","weeks":0}], "readinessScore": 0 }
+Return ONLY valid JSON.`,
+    },
+  ];
+}
