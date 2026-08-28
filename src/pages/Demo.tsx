@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import {
   Sparkles, Mic, Wand2, Briefcase, FileText, ArrowRight, ArrowLeft,
-  Check, Star, DollarSign, Bot, Play,
+  Check, Star, DollarSign, Bot, Play, Clapperboard,
 } from "lucide-react";
 
 /**
@@ -55,9 +55,12 @@ export default function Demo() {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
         <h1 className="page-title">Product Demo</h1>
-        <span className="chip bg-amber-100 text-amber-700">Simulated, sample data</span>
+        <div className="flex items-center gap-2">
+          <Link to="/story" className="btn-ghost h-9"><Clapperboard className="w-4 h-4" /> Watch Maya's story</Link>
+          <span className="chip bg-amber-100 text-amber-700">Simulated, sample data</span>
+        </div>
       </div>
       <p className="page-subtitle mb-5">A guided walkthrough of The Applicant. Sample results illustrate the experience.</p>
 

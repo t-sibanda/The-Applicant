@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import {
-  Sparkles, Mic, Briefcase, FileText, Check, Star, DollarSign, Play, Pause, RotateCcw,
+  Sparkles, Mic, Briefcase, FileText, Check, Star, DollarSign, Play, Pause, RotateCcw, ArrowLeft,
 } from "lucide-react";
 
 /**
@@ -132,9 +132,15 @@ export default function Story() {
   return (
     <div className="min-h-screen relative z-10 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-white/80 font-semibold">Maya's story · ~1 min</span>
-          <span className="chip bg-amber-100 text-amber-700">Simulated</span>
+        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-semibold"><ArrowLeft className="w-4 h-4" /> Back to app</Link>
+            <span className="text-white/80 font-semibold">Maya's story · ~1 min</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/demo" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 text-white text-sm font-semibold hover:bg-white/20"><Play className="w-3.5 h-3.5" /> Interactive demo</Link>
+            <span className="chip bg-amber-100 text-amber-700">Simulated</span>
+          </div>
         </div>
 
         {/* Video frame */}

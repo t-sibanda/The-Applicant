@@ -17,6 +17,7 @@ import {
   BookOpen,
   Mic,
   Play,
+  Clapperboard,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +35,7 @@ const nav = [
   { to: "/learning", label: "Learning Center", icon: BookOpen },
   { to: "/applications", label: "Applications", icon: Send },
   { to: "/demo", label: "Product Demo", icon: Play },
+  { to: "/story", label: "Watch the Story", icon: Clapperboard },
   { to: "/support", label: "Help & Support", icon: LifeBuoy },
   { to: "/billing", label: "Billing", icon: CreditCard },
 ];
