@@ -2,10 +2,28 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2 } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X } from "lucide-react";
 import { INDUSTRIES } from "../../shared/constants";
 
 type SortKey = "recent" | "relevance" | "quality";
+
+type ScanResult = {
+  match: number;
+  suggestion: "strong" | "worth_a_look" | "weak";
+  suggestionText: string;
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  hasResume: boolean;
+  jobText: string;
+  // context we carry so curation reuses the same input
+  company?: string;
+  title?: string;
+  url?: string;
+};
+
+function matchColor(m: number) {
+  return m >= 70 ? "bg-emerald-100 text-emerald-700" : m >= 45 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-600";
+}
 
 export default function Jobs() {
   const utils = trpc.useUtils();
@@ -38,26 +56,68 @@ export default function Jobs() {
     industryId: industryId || undefined,
   });
   const prepareFromPaste = trpc.applications.prepareFromPaste.useMutation();
+  const quickScan = trpc.jobs.quickScan.useMutation();
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteUrl, setPasteUrl] = useState("");
   const [pasteDesc, setPasteDesc] = useState("");
   const [pasteCompany, setPasteCompany] = useState("");
   const [pasteTitle, setPasteTitle] = useState("");
 
-  const curateFromPaste = async () => {
+  // A single scan result shown in a panel. It carries the job text so curation
+  // reuses the same input without re-fetching.
+  const [scan, setScan] = useState<ScanResult | null>(null);
+  const [scanningId, setScanningId] = useState<number | "paste" | null>(null);
+
+  // Scan a pasted link/description first, THEN offer to curate.
+  const scanPaste = async () => {
     if (!pasteUrl.trim() && pasteDesc.trim().length < 40) {
       return toast.error("Paste a job link or the job description text");
     }
-    const t = toast.loading("Reading the job and drafting your documents…");
+    setScanningId("paste");
     try {
-      await prepareFromPaste.mutateAsync({
+      const res = await quickScan.mutateAsync({
         url: pasteUrl.trim() || undefined,
         description: pasteDesc.trim() || undefined,
-        companyName: pasteCompany.trim() || undefined,
-        jobTitle: pasteTitle.trim() || undefined,
+        title: pasteTitle.trim() || undefined,
+      });
+      if (!res.ok) return toast.error(res.reason);
+      setScan({ ...res, company: pasteCompany.trim() || undefined, title: pasteTitle.trim() || undefined, url: pasteUrl.trim() || undefined });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanningId(null);
+    }
+  };
+
+  // Scan an existing job card.
+  const scanJob = async (j: any) => {
+    if (!j.description) return toast.error("This job has no description to scan");
+    setScanningId(j.id);
+    try {
+      const res = await quickScan.mutateAsync({ description: j.description, title: j.title });
+      if (!res.ok) return toast.error(res.reason);
+      setScan({ ...res, company: j.title, title: j.title, url: j.sourceUrl ?? undefined });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanningId(null);
+    }
+  };
+
+  // Curate documents from the scanned job (reuses the fetched text).
+  const curateFromScan = async () => {
+    if (!scan) return;
+    const t = toast.loading("Drafting your documents…");
+    try {
+      await prepareFromPaste.mutateAsync({
+        description: scan.jobText,
+        url: scan.url,
+        companyName: scan.company,
+        jobTitle: scan.title,
       });
       await utils.applications.list.invalidate();
-      toast.success("Draft ready. Review it on the Applications page.", { id: t });
+      toast.success("Draft saved to Applications for this job.", { id: t });
+      setScan(null);
       setPasteUrl(""); setPasteDesc(""); setPasteCompany(""); setPasteTitle(""); setPasteOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed", { id: t });
@@ -273,12 +333,35 @@ export default function Jobs() {
             </div>
           </div>
 
-          {/* Paste a job found elsewhere */}
+          {/* Search LinkedIn (deep-link) + import your LinkedIn profile */}
+          <div className="card p-4 mb-4 flex items-center gap-3 flex-wrap">
+            <Linkedin className="w-4 h-4 text-[#0a66c2] shrink-0" />
+            <div className="text-sm text-slate-600 flex-1 min-w-[180px]">
+              Search LinkedIn jobs tuned to your profile, then paste any you like below to scan and curate.
+            </div>
+            <button
+              onClick={() => {
+                const p = profiles.data?.find((x) => x.isActive);
+                const kw = keywords || p?.targetRole || "";
+                const loc = location || "";
+                const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}${loc ? `&location=${encodeURIComponent(loc)}` : ""}`;
+                window.open(url, "_blank", "noopener");
+              }}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#0a66c2] text-white text-xs font-semibold hover:brightness-110"
+            >
+              <Search className="w-3.5 h-3.5" /> Search LinkedIn
+            </button>
+            <Link to="/resume" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200" title="Import your LinkedIn export on the Resume page">
+              Import my LinkedIn
+            </Link>
+          </div>
+
+          {/* Paste a job found elsewhere — scan first, then curate */}
           <div className="card p-4 mb-4">
             <button onClick={() => setPasteOpen((v) => !v)} className="flex items-center gap-2 w-full text-left">
               <ClipboardPaste className="w-4 h-4 text-brand" />
               <h3 className="font-bold text-sm text-slate-800">Found a job elsewhere?</h3>
-              <span className="text-xs text-slate-400">Paste a link or description and we'll draft your documents</span>
+              <span className="text-xs text-slate-400">Paste a link or description. We scan the match first, then curate.</span>
               <span className="ml-auto text-slate-300 text-lg leading-none">{pasteOpen ? "−" : "+"}</span>
             </button>
             {pasteOpen && (
@@ -290,14 +373,61 @@ export default function Jobs() {
                 </div>
                 <textarea value={pasteDesc} onChange={(e) => setPasteDesc(e.target.value)} className="textarea min-h-[120px]" placeholder="Paste the job description here. If a link is blocked, this is the reliable way." />
                 <div className="flex items-center gap-2">
-                  <button onClick={curateFromPaste} disabled={prepareFromPaste.isPending} className="btn-primary">
-                    {prepareFromPaste.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting…</> : <><Wand2 className="w-4 h-4" /> Curate documents</>}
+                  <button onClick={scanPaste} disabled={scanningId === "paste"} className="btn-primary">
+                    {scanningId === "paste" ? <><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</> : <><ScanSearch className="w-4 h-4" /> Quick scan</>}
                   </button>
                   <Link to="/applications" className="text-xs text-brand font-semibold hover:underline">View drafts</Link>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Scan result panel */}
+          {scan && (
+            <div className="card p-5 mb-4 animate-fade-in" style={{ background: "linear-gradient(135deg,#fff7ed,#fff)" }}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <span className={`chip ${matchColor(scan.match)} text-sm font-bold px-3 py-1`}>{scan.match}% match</span>
+                  <div>
+                    <div className="font-bold text-sm text-slate-800">{scan.title || "This role"}</div>
+                    <div className="text-xs text-slate-500">{scan.suggestionText}</div>
+                  </div>
+                </div>
+                <button onClick={() => setScan(null)} className="text-slate-300 hover:text-slate-600"><X className="w-4 h-4" /></button>
+              </div>
+
+              {!scan.hasResume && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mb-3">
+                  Add your resume for a sharper match and to tailor documents. <Link to="/resume" className="underline font-semibold">Add resume →</Link>
+                </p>
+              )}
+
+              {scan.hasResume && (
+                <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <div className="text-[11px] font-bold text-emerald-600 mb-1">You already cover</div>
+                    <div className="flex flex-wrap gap-1">
+                      {scan.matchedKeywords.length ? scan.matchedKeywords.map((k) => <span key={k} className="chip bg-emerald-100 text-emerald-700">{k}</span>) : <span className="text-xs text-slate-400">–</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-rose-500 mb-1">Worth adding</div>
+                    <div className="flex flex-wrap gap-1">
+                      {scan.missingKeywords.length ? scan.missingKeywords.map((k) => <span key={k} className="chip bg-rose-100 text-rose-600">{k}</span>) : <span className="text-xs text-slate-400">Nothing major</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={curateFromScan} disabled={prepareFromPaste.isPending} className="btn-primary">
+                  {prepareFromPaste.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting…</> : <><Wand2 className="w-4 h-4" /> Curate documents</>}
+                </button>
+                <Link to="/optimizer" className="btn-ghost"><Bot className="w-4 h-4" /> Open in AI Optimizer</Link>
+                {scan.url && <a href={scan.url} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
+              </div>
+            </div>
+          )}
 
           {/* Suggested companies */}
           {(suggestions.data?.length ?? 0) > 0 && (
@@ -405,6 +535,7 @@ export default function Jobs() {
                       </div>
                       <div className="flex items-center gap-3 mt-2 flex-wrap">
                         {j.sourceUrl && <a href={j.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
+                        <button onClick={() => scanJob(j)} disabled={scanningId === j.id} className="text-xs text-brand font-semibold inline-flex items-center gap-1 hover:underline">{scanningId === j.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanSearch className="w-3 h-3" />} Quick scan</button>
                         <button onClick={() => prepareApplication(j)} disabled={prepare.isPending} className="text-xs text-brand font-semibold inline-flex items-center gap-1 hover:underline"><Sparkles className="w-3 h-3" /> Prepare application</button>
                         {j.status !== "saved" && <button onClick={() => mark(j.id, "saved")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Star className="w-3 h-3" /> Save</button>}
                         {j.status !== "applied" && <button onClick={() => mark(j.id, "applied")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Send className="w-3 h-3" /> Mark applied</button>}

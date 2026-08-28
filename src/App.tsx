@@ -16,9 +16,8 @@ const Applications = lazy(() => import("@/pages/Applications"));
 const Billing = lazy(() => import("@/pages/Billing"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Support = lazy(() => import("@/pages/Support"));
-const Portfolio = lazy(() => import("@/pages/Portfolio"));
-const Career = lazy(() => import("@/pages/Career"));
-const Learning = lazy(() => import("@/pages/Learning"));
+const ProfileHub = lazy(() => import("@/pages/ProfileHub"));
+const Growth = lazy(() => import("@/pages/Growth"));
 const Account = lazy(() => import("@/pages/Account"));
 const Voice = lazy(() => import("@/pages/Voice"));
 const Demo = lazy(() => import("@/pages/Demo"));
@@ -71,14 +70,16 @@ export default function App() {
         <Route path="/story" element={<Story />} />
         <Route path="/home" element={<Landing />} />
         <Route path="/" element={<Root />} />
-        <Route path="/profiles" element={<Protected><Profiles /></Protected>} />
+        <Route path="/profiles" element={<Protected><ProfileHub /></Protected>} />
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
         <Route path="/resume" element={<Protected><Resume /></Protected>} />
         <Route path="/optimizer" element={<Protected><Optimizer /></Protected>} />
         <Route path="/voice" element={<Protected><Voice /></Protected>} />
-        <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
-        <Route path="/career" element={<Protected><Career /></Protected>} />
-        <Route path="/learning" element={<Protected><Learning /></Protected>} />
+        {/* Merged pages; old paths redirect so existing links keep working. */}
+        <Route path="/portfolio" element={<Navigate to="/profiles" replace />} />
+        <Route path="/growth" element={<Protected><Growth /></Protected>} />
+        <Route path="/career" element={<Navigate to="/growth" replace />} />
+        <Route path="/learning" element={<Navigate to="/growth" replace />} />
         <Route path="/applications" element={<Protected><Applications /></Protected>} />
         <Route path="/support" element={<Protected><Support /></Protected>} />
         <Route path="/account" element={<Protected><Account /></Protected>} />

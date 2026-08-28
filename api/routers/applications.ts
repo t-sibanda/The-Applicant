@@ -8,44 +8,8 @@ import { ApplicationStatus } from "../../shared/constants";
 import { chatCompletion } from "../services/ai";
 import { tailorResumeMessages, coverLetterMessages } from "../services/prompts";
 import { requireFeature, effectivePlan } from "../lib/entitlements";
+import { fetchJobText } from "../lib/fetch-job-text";
 import { TRPCError } from "@trpc/server";
-
-/**
- * Best-effort fetch of a job posting's visible text from a URL. Many ATS pages
- * are server-rendered and readable; JS-only pages may return little, in which
- * case the caller asks the user to paste the description instead. We never
- * execute page scripts, just strip tags from the returned HTML.
- */
-async function fetchJobText(url: string): Promise<string> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        // A normal desktop UA improves the odds of getting real HTML.
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-    if (!res.ok) return "";
-    const html = await res.text();
-    return html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 12000);
-  } catch {
-    return "";
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const statusEnum = z.enum([
   ApplicationStatus.DRAFT,
@@ -112,6 +76,31 @@ export const applicationsRouter = router({
         chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription }), { maxTokens: 3000 }),
         chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription, companyName: input.companyName, jobTitle: input.jobTitle }), { maxTokens: 2000 }),
       ]);
+
+      // If a draft already exists for this job, update it in place so the user
+      // returns to the same document set rather than piling up duplicates.
+      const existing = input.jobId
+        ? (await db
+            .select({ id: applications.id })
+            .from(applications)
+            .where(and(eq(applications.userId, ctx.user.id), eq(applications.jobId, input.jobId)))
+            .limit(1)).at(0)
+        : undefined;
+
+      if (existing) {
+        const rows = await db
+          .update(applications)
+          .set({
+            companyName: input.companyName,
+            jobTitle: input.jobTitle,
+            jobUrl: input.jobUrl,
+            draftResume: resumeRes.success ? resumeRes.content : null,
+            draftCoverLetter: coverRes.success ? coverRes.content : null,
+          })
+          .where(eq(applications.id, existing.id))
+          .returning();
+        return rows[0];
+      }
 
       const rows = await db
         .insert(applications)

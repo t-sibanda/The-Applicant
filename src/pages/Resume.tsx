@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Save, Mic, Loader2, FileText, Sparkles, Eye, Download, X } from "lucide-react";
+import { Save, Mic, Loader2, FileText, Sparkles, Eye, Download, X, Linkedin, Wand2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Resume() {
@@ -13,6 +13,7 @@ export default function Resume() {
   const create = trpc.resume.createProfile.useMutation();
   const update = trpc.resume.updateProfile.useMutation();
   const analyzeVoice = trpc.resume.analyzeAndSaveVoice.useMutation();
+  const curate = trpc.resume.curateFromPaste.useMutation();
 
   const current = profiles.data?.[0];
   const versions = trpc.resume.listVersions.useQuery(
@@ -26,6 +27,30 @@ export default function Resume() {
   const [text, setText] = useState("");
   const [voiceSample, setVoiceSample] = useState("");
   const [viewing, setViewing] = useState<{ label: string; content: string } | null>(null);
+
+  // Import / curate from pasted info (e.g. your LinkedIn export).
+  const [importOpen, setImportOpen] = useState(false);
+  const [pastedInfo, setPastedInfo] = useState("");
+  const [importMode, setImportMode] = useState<"merge" | "rewrite" | "targeted">("merge");
+  const [importPreview, setImportPreview] = useState("");
+
+  const runCurate = async (save: boolean) => {
+    if (pastedInfo.trim().length < 20) return toast.error("Paste your LinkedIn export or resume details");
+    try {
+      const res = await curate.mutateAsync({ pastedInfo, mode: importMode, save });
+      if (!res.success || !res.content) return toast.error(res.error ?? "Failed");
+      setImportPreview(res.content);
+      if (save) {
+        setText(res.content);
+        await utils.resume.listProfiles.invalidate();
+        toast.success("Saved as your base resume.");
+      } else {
+        toast.success("Draft ready below. Review, then save it.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
 
   useEffect(() => {
     if (current) {
@@ -89,6 +114,45 @@ export default function Resume() {
         <button onClick={save} disabled={create.isPending || update.isPending} className="btn-primary">
           {(create.isPending || update.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save resume
         </button>
+      </div>
+
+      {/* Import from LinkedIn / paste details */}
+      <div className="card p-5 mt-4">
+        <button onClick={() => setImportOpen((v) => !v)} className="flex items-center gap-2 w-full text-left">
+          <Linkedin className="w-4 h-4 text-[#0a66c2]" />
+          <h3 className="font-bold text-sm text-slate-800">Import from LinkedIn or paste details</h3>
+          <span className="ml-auto text-slate-300 text-lg leading-none">{importOpen ? "−" : "+"}</span>
+        </button>
+        {importOpen && (
+          <div className="mt-3 space-y-3">
+            <div className="text-xs text-slate-500 leading-relaxed rounded-lg bg-slate-50 p-3">
+              LinkedIn doesn't allow apps to read your profile directly, but you can export it yourself:
+              open your LinkedIn profile, use <span className="font-semibold">More → Save to PDF</span> (or
+              Settings → Data privacy → Get a copy of your data), then paste the text here. We'll build or
+              enrich your resume from it, in your voice. Nothing is sent to LinkedIn.
+            </div>
+            <textarea value={pastedInfo} onChange={(e) => setPastedInfo(e.target.value)} className="textarea min-h-[140px]" placeholder="Paste your LinkedIn export, another resume, or extra experience and achievements…" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-slate-500">How should we use it?</span>
+              {([["merge", "Merge with my resume"], ["rewrite", "Rebuild from this"], ["targeted", "Target a role"]] as const).map(([m, label]) => (
+                <button key={m} onClick={() => setImportMode(m)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${importMode === m ? "bg-brand text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>{label}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => runCurate(false)} disabled={curate.isPending} className="btn-ghost">
+                {curate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Preview
+              </button>
+              <button onClick={() => runCurate(true)} disabled={curate.isPending} className="btn-primary">
+                {curate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Curate & save as base resume
+              </button>
+            </div>
+            {importPreview && (
+              <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                {importPreview}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Voice profile */}

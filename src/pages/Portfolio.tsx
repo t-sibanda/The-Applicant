@@ -12,7 +12,7 @@ const TEMPLATES = [
 
 const ACCENTS = ["#ff6b35", "#7c3aed", "#0ea5e9", "#10b981", "#e11d48", "#0f172a"];
 
-export default function Portfolio() {
+export default function Portfolio({ embedded }: { embedded?: boolean } = {}) {
   const utils = trpc.useUtils();
   const data = trpc.portfolio.get.useQuery();
   const upsert = trpc.portfolio.upsert.useMutation();
@@ -80,9 +80,9 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className={embedded ? "" : "max-w-4xl"}>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="page-title">Portfolio Builder</h1>
+        {embedded ? <div /> : <h1 className="page-title">Portfolio Builder</h1>}
         <div className="flex gap-2">
           <button onClick={() => setPreview(true)} className="btn-ghost"><Eye className="w-4 h-4" /> Preview</button>
           <button onClick={save} disabled={upsert.isPending} className="btn-primary">
@@ -90,7 +90,7 @@ export default function Portfolio() {
           </button>
         </div>
       </div>
-      <p className="page-subtitle mb-5">Build a portfolio that markets you, in your own voice.</p>
+      {!embedded && <p className="page-subtitle mb-5">Build a portfolio that markets you, in your own voice.</p>}
 
       {/* AI generate */}
       <div className="card p-4 mb-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg,#ede9fe,#fff)" }}>

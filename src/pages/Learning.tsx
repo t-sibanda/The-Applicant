@@ -18,7 +18,7 @@ const CAT_STYLE: Record<string, string> = {
   industry: "bg-emerald-100 text-emerald-700",
 };
 
-export default function Learning() {
+export default function Learning({ embedded }: { embedded?: boolean } = {}) {
   const utils = trpc.useUtils();
   const [cat, setCat] = useState<string>("all");
   const items = trpc.learning.list.useQuery({ category: cat });
@@ -47,11 +47,13 @@ export default function Learning() {
   };
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="page-title">Learning Center</h1>
-      <p className="page-subtitle mb-5">
-        Save the LinkedIn posts, articles, and tips worth keeping. We'll pull out what matters and fold it into your profile and portfolio.
-      </p>
+    <div className={embedded ? "" : "max-w-4xl"}>
+      {!embedded && <h1 className="page-title">Learning Center</h1>}
+      {!embedded && (
+        <p className="page-subtitle mb-5">
+          Save the LinkedIn posts, articles, and tips worth keeping. We'll pull out what matters and fold it into your profile and portfolio.
+        </p>
+      )}
 
       {/* Add form */}
       <div className="card p-4 mb-4">

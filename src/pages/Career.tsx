@@ -10,7 +10,7 @@ const IMPACT_COLOR: Record<string, string> = {
   low: "bg-slate-100 text-slate-500",
 };
 
-export default function Career() {
+export default function Career({ embedded }: { embedded?: boolean } = {}) {
   const simulate = trpc.career.simulate.useMutation();
   const [target, setTarget] = useState("");
   const [horizon, setHorizon] = useState(5);
@@ -24,9 +24,9 @@ export default function Career() {
   };
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="page-title">Career Builder</h1>
-      <p className="page-subtitle mb-5">Map out where you're headed, set the milestones, and see which certifications keep you competitive.</p>
+    <div className={embedded ? "" : "max-w-4xl"}>
+      {!embedded && <h1 className="page-title">Career Builder</h1>}
+      {!embedded && <p className="page-subtitle mb-5">Map out where you're headed, set the milestones, and see which certifications keep you competitive.</p>}
 
       <div className="card p-5 mb-5 grid sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
         <div>

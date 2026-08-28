@@ -2,12 +2,14 @@ import { z } from "zod";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { jobs, companies, scrapingLogs } from "../db/schema";
+import { jobs, companies, scrapingLogs, resumeProfiles } from "../db/schema";
 import { getActiveProfile } from "./profiles";
 import { searchAllSources } from "../services/job-sources";
 import { compAboveMedian, scoreCompany, rankByQuality } from "../services/quality";
 import { scoreRelevance, passesFilters } from "../services/relevance";
 import { suggestCompanies } from "../services/company-suggest";
+import { analyzeAts } from "../services/ats";
+import { fetchJobText } from "../lib/fetch-job-text";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
 
@@ -202,6 +204,86 @@ export const jobsRouter = router({
         industryId: input?.industryId,
         limit: 15,
       });
+    }),
+
+  // Quick scan: fast, no-AI read of a job against the user's profile + resume.
+  // Returns a match rating and a plain suggestion (apply / worth a look / skip),
+  // plus the keyword gaps so the user knows what the Optimizer would fix.
+  quickScan: authedProcedure
+    .input(
+      z.object({
+        description: z.string().max(20000).optional(),
+        url: z.string().url().max(2000).optional(),
+        title: z.string().max(300).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const profile = await getActiveProfile(ctx.user.id);
+      const resume = (
+        await getDb().select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+
+      let jobText = (input.description ?? "").trim();
+      if (jobText.length < 40 && input.url) {
+        jobText = await fetchJobText(input.url);
+      }
+      if (jobText.trim().length < 40) {
+        return {
+          ok: false as const,
+          reason:
+            "Couldn't read enough job detail. Paste the job description text (some sites block automated reads).",
+        };
+      }
+
+      // Relevance to the user's targeting (0-100).
+      const relevance = scoreRelevance(
+        {
+          title: input.title ?? "",
+          description: jobText,
+          companyName: "",
+          sourceName: "scan",
+          sourceUrl: input.url ?? "",
+          dedupeHash: "scan",
+        },
+        {
+          targetRole: profile?.targetRole,
+          targetIndustry: profile?.targetIndustry,
+          keywords: [],
+        },
+      );
+
+      // ATS fit vs the current base resume (deterministic, instant).
+      const resumeText = resume?.baseResumeText ?? "";
+      const ats = resumeText ? analyzeAts(resumeText, jobText) : null;
+
+      // Blend into a single match rating. Relevance always counts; ATS only
+      // when we have a resume to compare against.
+      const match = ats
+        ? Math.round(relevance * 0.5 + ats.baseScore * 0.5)
+        : relevance;
+
+      const suggestion: "strong" | "worth_a_look" | "weak" =
+        match >= 70 ? "strong" : match >= 45 ? "worth_a_look" : "weak";
+      const suggestionText =
+        suggestion === "strong"
+          ? "Strong match. Worth applying."
+          : suggestion === "worth_a_look"
+            ? "Decent match. Tailoring your resume would help."
+            : "Weak match as-is. Consider whether it fits, or tailor heavily.";
+
+      return {
+        ok: true as const,
+        match,
+        relevance,
+        atsBase: ats?.baseScore ?? null,
+        hasResume: !!resumeText,
+        matchedKeywords: ats?.keyword.matched.slice(0, 12) ?? [],
+        missingKeywords: ats?.keyword.missing.slice(0, 12) ?? [],
+        formatIssues: ats?.format.issues ?? [],
+        suggestion,
+        suggestionText,
+        jobText: jobText.slice(0, 16000), // returned so the client can reuse it for curation without re-fetching
+      };
     }),
 
   list: authedProcedure

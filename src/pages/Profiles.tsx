@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Link2, StickyNote, Trash2, Mic, FileText } from "lucide-react";
 import { INDUSTRIES } from "../../shared/constants";
 
-export default function Profiles() {
+export default function Profiles({ embedded }: { embedded?: boolean } = {}) {
   const utils = trpc.useUtils();
   const profiles = trpc.profiles.list.useQuery();
   const resumes = trpc.resume.listProfiles.useQuery();
@@ -80,11 +80,13 @@ export default function Profiles() {
   };
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="page-title">Profiles</h1>
-      <p className="page-subtitle mb-5">
-        Your job-hunt hub: targeting, resume, voice, and saved links all in one place.
-      </p>
+    <div className={embedded ? "" : "max-w-3xl"}>
+      {!embedded && <h1 className="page-title">Profiles</h1>}
+      {!embedded && (
+        <p className="page-subtitle mb-5">
+          Your job-hunt hub: targeting, resume, voice, and saved links all in one place.
+        </p>
+      )}
 
       {/* My access — current plan + features */}
       {access.data && (
