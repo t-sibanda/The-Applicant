@@ -1,4 +1,5 @@
 import { COMPANY_DIRECTORY, type CompanyEntry } from "./ats-boards";
+import { INDUSTRIES } from "../../shared/constants";
 
 /**
  * Rank employers from the curated directory against a user's profile and
@@ -14,6 +15,7 @@ export interface SuggestInputs {
   industry?: string | null;
   role?: string | null;
   keywords?: string[];
+  industryId?: string | null; // explicit industry filter chosen in the UI
   limit?: number;
 }
 
@@ -36,13 +38,27 @@ function tokenize(s: string): string[] {
 }
 
 export function suggestCompanies(inputs: SuggestInputs): CompanySuggestion[] {
+  // An explicit industry pick contributes its full tag set (strong signal).
+  const industryTags = inputs.industryId
+    ? (INDUSTRIES.find((i) => i.id === inputs.industryId)?.tags ?? [])
+    : [];
+
   const wants = new Set<string>([
     ...tokenize(inputs.industry ?? ""),
     ...tokenize(inputs.role ?? ""),
     ...(inputs.keywords ?? []).flatMap(tokenize),
+    ...industryTags,
   ]);
 
-  const scored = COMPANY_DIRECTORY.map((c) => {
+  // When an industry is explicitly chosen, only surface companies that carry
+  // at least one of that industry's tags (keeps the list on-topic).
+  const industryTagSet = new Set<string>(industryTags);
+
+  const pool = industryTagSet.size
+    ? COMPANY_DIRECTORY.filter((c) => c.tags.some((t) => industryTagSet.has(t)))
+    : COMPANY_DIRECTORY;
+
+  const scored = pool.map((c) => {
     const searchable = c.ats !== "external";
     let score = 0;
 

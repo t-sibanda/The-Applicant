@@ -2,6 +2,23 @@
 
 export const SESSION_COOKIE = "ta_session";
 
+// Industry options offered across profiles and company suggestions. The `tags`
+// map an industry to the directory tags used for matching employers.
+export const INDUSTRIES = [
+  { id: "technology", label: "Technology", tags: ["software", "ai", "ml", "cloud", "developer tools", "infrastructure", "big tech"] },
+  { id: "finance", label: "Finance", tags: ["fintech", "payments", "banking", "investing", "crypto"] },
+  { id: "healthcare", label: "Healthcare", tags: ["healthcare", "biotech", "life sciences", "medical", "pharma"] },
+  { id: "entertainment", label: "Entertainment", tags: ["media", "streaming", "gaming", "entertainment", "music", "video"] },
+  { id: "sustainability", label: "Sustainability", tags: ["energy", "climate", "cleantech", "environment", "renewable"] },
+  { id: "manufacturing", label: "Manufacturing", tags: ["manufacturing", "hardware", "automotive", "industrial", "supply chain", "robotics"] },
+  { id: "consulting", label: "Consulting", tags: ["consulting", "advisory", "strategy", "professional services"] },
+  { id: "creative", label: "Creative Arts", tags: ["design", "creative", "media", "art", "content", "product"] },
+  { id: "education", label: "Education", tags: ["education", "edtech", "learning", "training", "academic"] },
+  { id: "retail", label: "Retail", tags: ["retail", "ecommerce", "marketplace", "consumer", "logistics"] },
+] as const;
+
+export type IndustryId = (typeof INDUSTRIES)[number]["id"];
+
 export const Roles = {
   USER: "user",
   ADMIN: "admin",

@@ -4,7 +4,7 @@ import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
 import { resumeProfiles, resumeVersions } from "../db/schema";
 import { chatCompletion } from "../services/ai";
-import { voiceAnalysisMessages } from "../services/prompts";
+import { voiceAnalysisMessages, curateResumeMessages } from "../services/prompts";
 import { requireAIEntitlement } from "../lib/entitlements";
 import { TRPCError } from "@trpc/server";
 
@@ -137,6 +137,60 @@ export const resumeRouter = router({
         .from(resumeVersions)
         .where(eq(resumeVersions.resumeProfileId, input.resumeProfileId))
         .orderBy(desc(resumeVersions.createdAt));
+    }),
+
+  // Curate a resume from pasted information (extra experience, another resume,
+  // achievements, notes). Returns the curated text; the user reviews before
+  // saving it as their base resume via updateProfile.
+  curateFromPaste: authedProcedure
+    .input(
+      z.object({
+        pastedInfo: z.string().min(20).max(20000),
+        mode: z.enum(["merge", "rewrite", "targeted"]).default("merge"),
+        targetContext: z.string().max(2000).optional(),
+        save: z.boolean().optional(), // when true, persist to the base resume
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const db = getDb();
+      const resume = (
+        await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+
+      const voice =
+        resume?.voiceProfile ||
+        "Professional, results-driven, uses metrics and action verbs";
+
+      const res = await chatCompletion(
+        curateResumeMessages({
+          baseResume: resume?.baseResumeText ?? "",
+          pastedInfo: input.pastedInfo,
+          voiceProfile: voice,
+          mode: input.mode,
+          targetContext: input.targetContext,
+        }),
+        { maxTokens: 3200 },
+      );
+      if (!res.success || !res.content) return res;
+
+      let savedProfileId: number | null = resume?.id ?? null;
+      if (input.save) {
+        if (resume) {
+          await db
+            .update(resumeProfiles)
+            .set({ baseResumeText: res.content })
+            .where(eq(resumeProfiles.id, resume.id));
+        } else {
+          const created = await db
+            .insert(resumeProfiles)
+            .values({ userId: ctx.user.id, baseResumeText: res.content, isDefault: true })
+            .returning({ id: resumeProfiles.id });
+          savedProfileId = created[0]?.id ?? null;
+        }
+      }
+
+      return { success: true as const, content: res.content, saved: !!input.save, resumeProfileId: savedProfileId, error: null };
     }),
 
   // Voice profile: analyze samples and save to a resume profile.

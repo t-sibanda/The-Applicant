@@ -10,6 +10,43 @@ import { tailorResumeMessages, coverLetterMessages } from "../services/prompts";
 import { requireFeature, effectivePlan } from "../lib/entitlements";
 import { TRPCError } from "@trpc/server";
 
+/**
+ * Best-effort fetch of a job posting's visible text from a URL. Many ATS pages
+ * are server-rendered and readable; JS-only pages may return little, in which
+ * case the caller asks the user to paste the description instead. We never
+ * execute page scripts, just strip tags from the returned HTML.
+ */
+async function fetchJobText(url: string): Promise<string> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        // A normal desktop UA improves the odds of getting real HTML.
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 12000);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const statusEnum = z.enum([
   ApplicationStatus.DRAFT,
   ApplicationStatus.READY,
@@ -91,6 +128,67 @@ export const applicationsRouter = router({
         })
         .returning();
       return rows[0];
+    }),
+
+  // Paste-to-curate: user pastes a job LINK and/or DESCRIPTION found on another
+  // site; we tailor a resume + cover letter and save a review-ready draft.
+  // If only a URL is given we fetch the page text server-side (best-effort).
+  prepareFromPaste: authedProcedure
+    .input(
+      z.object({
+        url: z.string().url().max(2000).optional(),
+        description: z.string().max(20000).optional(),
+        companyName: z.string().max(255).optional(),
+        jobTitle: z.string().max(300).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireFeature(ctx.user, "semiApply", "Assisted apply");
+      const db = getDb();
+      const profile = await getActiveProfile(ctx.user.id);
+      const resume = (
+        await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+      if (!resume?.baseResumeText) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Add your resume first." });
+      }
+
+      // Resolve the job text: prefer the pasted description, else fetch the URL.
+      let jobText = (input.description ?? "").trim();
+      if (jobText.length < 40 && input.url) {
+        jobText = await fetchJobText(input.url);
+      }
+      if (jobText.trim().length < 40) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Couldn't read enough job detail. Paste the job description text (some sites block automated reads).",
+        });
+      }
+
+      const voice = resume.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
+      const companyName = input.companyName?.trim() || "the company";
+      const jobTitle = input.jobTitle?.trim() || "this role";
+
+      const [resumeRes, coverRes] = await Promise.all([
+        chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText }), { maxTokens: 3000 }),
+        chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText, companyName, jobTitle }), { maxTokens: 2000 }),
+      ]);
+
+      const rows = await db
+        .insert(applications)
+        .values({
+          userId: ctx.user.id,
+          profileId: profile?.id,
+          companyName,
+          jobTitle,
+          jobUrl: input.url,
+          status: ApplicationStatus.DRAFT,
+          draftResume: resumeRes.success ? resumeRes.content : null,
+          draftCoverLetter: coverRes.success ? coverRes.content : null,
+        })
+        .returning();
+      return { application: rows[0], usedUrl: !input.description && !!input.url };
     }),
 
   // Auto-apply: bulk-prepare review-ready drafts for the top-matched NEW jobs,

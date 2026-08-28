@@ -187,9 +187,17 @@ export const jobsRouter = router({
       };
     }),
 
-  // Company suggestions ranked against the active profile + optional keywords.
+  // Company suggestions ranked against the active profile + optional keywords,
+  // optionally narrowed to a chosen industry.
   suggestCompanies: authedProcedure
-    .input(z.object({ keywords: z.string().max(300).optional() }).optional())
+    .input(
+      z
+        .object({
+          keywords: z.string().max(300).optional(),
+          industryId: z.string().max(40).optional(),
+        })
+        .optional(),
+    )
     .query(async ({ ctx, input }) => {
       const profile = await getActiveProfile(ctx.user.id);
       const keywordList = (input?.keywords ?? "")
@@ -200,7 +208,8 @@ export const jobsRouter = router({
         industry: profile?.targetIndustry,
         role: profile?.targetRole,
         keywords: keywordList,
-        limit: 12,
+        industryId: input?.industryId,
+        limit: 15,
       });
     }),
 

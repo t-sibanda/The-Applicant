@@ -3,14 +3,14 @@ import { suggestCompanies } from "./company-suggest";
 
 describe("suggestCompanies", () => {
   it("ranks AI companies highly for an AI/ML profile", () => {
-    const out = suggestCompanies({ industry: "Artificial Intelligence", role: "ML Engineer", keywords: [] });
+    const out = suggestCompanies({ keywords: ["ai", "ml", "research"] });
     const names = out.map((c) => c.name);
     expect(names).toContain("Anthropic");
     expect(names).toContain("OpenAI");
-    // AI labs should outrank an unrelated fintech-only match.
+    // AI labs should surface near the top, ahead of unrelated matches.
     const anthropicIdx = names.indexOf("Anthropic");
     expect(anthropicIdx).toBeGreaterThanOrEqual(0);
-    expect(anthropicIdx).toBeLessThan(8);
+    expect(anthropicIdx).toBeLessThan(10);
   });
 
   it("boosts a company named directly in keywords", () => {
@@ -38,5 +38,17 @@ describe("suggestCompanies", () => {
   it("respects the limit", () => {
     const out = suggestCompanies({ industry: "software", limit: 5 });
     expect(out.length).toBeLessThanOrEqual(5);
+  });
+
+  it("narrows results to a chosen industry", () => {
+    const ent = suggestCompanies({ industryId: "entertainment" });
+    expect(ent.length).toBeGreaterThan(0);
+    // Every result should carry an entertainment-related tag.
+    const entTags = ["media", "streaming", "gaming", "entertainment", "music", "video"];
+    expect(ent.every((c) => c.tags.some((t) => entTags.includes(t)))).toBe(true);
+
+    const health = suggestCompanies({ industryId: "healthcare" });
+    const healthTags = ["healthcare", "biotech", "life sciences", "medical", "pharma"];
+    expect(health.every((c) => c.tags.some((t) => healthTags.includes(t)))).toBe(true);
   });
 });

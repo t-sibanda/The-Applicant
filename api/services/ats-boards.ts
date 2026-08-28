@@ -123,4 +123,56 @@ export const COMPANY_DIRECTORY: CompanyEntry[] = [
   { name: "Affirm", ats: "greenhouse", token: "affirm", tags: ["fintech", "payments", "software"] },
   { name: "Rippling", ats: "greenhouse", token: "rippling", tags: ["software", "hr", "fintech"] },
   { name: "Benchling", ats: "greenhouse", token: "benchling", tags: ["software", "biotech", "life sciences", "healthcare"] },
+
+  // ── Healthcare / biotech / life sciences ──
+  { name: "Oscar Health", ats: "greenhouse", token: "oscar", tags: ["healthcare", "insurance", "software"] },
+  { name: "Tempus", ats: "greenhouse", token: "tempus", tags: ["healthcare", "biotech", "ai", "ml", "life sciences"] },
+  { name: "Hims & Hers", ats: "greenhouse", token: "hims", tags: ["healthcare", "consumer", "telehealth"] },
+  { name: "Devoted Health", ats: "greenhouse", token: "devoted", tags: ["healthcare", "insurance", "software"] },
+  { name: "Ro", ats: "greenhouse", token: "ro", tags: ["healthcare", "telehealth", "consumer"] },
+
+  // ── Entertainment / media / gaming ──
+  { name: "Riot Games", ats: "greenhouse", token: "riotgames", tags: ["gaming", "entertainment", "media", "software"] },
+  { name: "Epic Games", ats: "greenhouse", token: "epicgames", tags: ["gaming", "entertainment", "media", "software"] },
+  { name: "Roblox", ats: "greenhouse", token: "roblox", tags: ["gaming", "entertainment", "software", "media"] },
+  { name: "Warner Bros. Discovery", ats: "greenhouse", token: "warnerbrosdiscovery", tags: ["media", "entertainment", "streaming"] },
+  { name: "Sony", ats: "external", careersUrl: "https://www.sonyjobs.com/", tags: ["media", "entertainment", "gaming", "hardware", "music"] },
+  { name: "Disney", ats: "external", careersUrl: "https://jobs.disneycareers.com/", tags: ["media", "entertainment", "streaming", "creative"] },
+
+  // ── Sustainability / energy / climate ──
+  { name: "Tesla Energy", ats: "external", careersUrl: "https://www.tesla.com/careers/search/?department=3", tags: ["energy", "sustainability", "climate", "renewable", "hardware"] },
+  { name: "Rivian", ats: "greenhouse", token: "rivian", tags: ["automotive", "energy", "sustainability", "manufacturing", "hardware"] },
+  { name: "Form Energy", ats: "greenhouse", token: "formenergy", tags: ["energy", "climate", "cleantech", "sustainability", "manufacturing"] },
+  { name: "Watershed", ats: "greenhouse", token: "watershedclimate", tags: ["climate", "sustainability", "software", "environment"] },
+  { name: "Arcadia", ats: "greenhouse", token: "arcadia", tags: ["energy", "climate", "sustainability", "software"] },
+  { name: "Redwood Materials", ats: "greenhouse", token: "redwoodmaterials", tags: ["energy", "sustainability", "manufacturing", "recycling", "cleantech"] },
+
+  // ── Manufacturing / hardware / industrial / robotics ──
+  { name: "Anduril", ats: "greenhouse", token: "andurilindustries", tags: ["manufacturing", "hardware", "defense", "robotics", "software"] },
+  { name: "Boston Dynamics", ats: "external", careersUrl: "https://bostondynamics.com/careers/", tags: ["robotics", "manufacturing", "hardware", "ai"] },
+  { name: "SpaceX", ats: "external", careersUrl: "https://www.spacex.com/careers/jobs/", tags: ["aerospace", "manufacturing", "hardware", "engineering"] },
+  { name: "Zipline", ats: "lever", token: "zipline", tags: ["hardware", "robotics", "logistics", "manufacturing", "healthcare"] },
+
+  // ── Consulting / professional services ──
+  { name: "McKinsey & Company", ats: "external", careersUrl: "https://www.mckinsey.com/careers/search-jobs", tags: ["consulting", "strategy", "advisory", "professional services"] },
+  { name: "Boston Consulting Group", ats: "external", careersUrl: "https://careers.bcg.com/", tags: ["consulting", "strategy", "advisory", "professional services"] },
+  { name: "Deloitte", ats: "external", careersUrl: "https://apply.deloitte.com/", tags: ["consulting", "advisory", "professional services", "finance", "technology"] },
+  { name: "Accenture", ats: "external", careersUrl: "https://www.accenture.com/us-en/careers/jobsearch", tags: ["consulting", "technology", "advisory", "professional services"] },
+
+  // ── Retail / ecommerce / consumer ──
+  { name: "Shopify", ats: "external", careersUrl: "https://www.shopify.com/careers/search", tags: ["retail", "ecommerce", "software", "marketplace"] },
+  { name: "Instacart", ats: "greenhouse", token: "instacart", tags: ["retail", "ecommerce", "logistics", "marketplace", "software"] },
+  { name: "Faire", ats: "greenhouse", token: "faire", tags: ["retail", "ecommerce", "marketplace", "software"] },
+  { name: "Warby Parker", ats: "greenhouse", token: "warbyparker", tags: ["retail", "ecommerce", "consumer", "design"] },
+  { name: "Glossier", ats: "greenhouse", token: "glossier", tags: ["retail", "consumer", "creative", "ecommerce"] },
+
+  // ── Education / edtech ──
+  { name: "Duolingo", ats: "greenhouse", token: "duolingo", tags: ["education", "edtech", "software", "ai", "ml"] },
+  { name: "Coursera", ats: "greenhouse", token: "coursera", tags: ["education", "edtech", "software"] },
+  { name: "Khan Academy", ats: "lever", token: "khanacademy", tags: ["education", "edtech", "software", "nonprofit"] },
+
+  // ── Creative / design / content ──
+  { name: "Canva", ats: "lever", token: "canva", tags: ["design", "creative", "software", "product"] },
+  { name: "Adobe", ats: "external", careersUrl: "https://careers.adobe.com/us/en/search-results", tags: ["design", "creative", "software", "content", "media"] },
+  { name: "Patreon", ats: "greenhouse", token: "patreon", tags: ["creative", "media", "software", "content"] },
 ];

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Link2, StickyNote, Trash2, Mic, FileText } from "lucide-react";
+import { INDUSTRIES } from "../../shared/constants";
 
 export default function Profiles() {
   const utils = trpc.useUtils();
@@ -124,7 +125,10 @@ export default function Profiles() {
       {/* Create profile */}
       <div className="card p-4 mb-5 grid sm:grid-cols-4 gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Profile name" className="input" />
-        <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Industry" className="input" />
+        <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Industry" className="input" list="industry-options" />
+        <datalist id="industry-options">
+          {INDUSTRIES.map((i) => <option key={i.id} value={i.label} />)}
+        </datalist>
         <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Target role" className="input" />
         <button onClick={add} disabled={create.isPending} className="btn-primary">Add</button>
       </div>

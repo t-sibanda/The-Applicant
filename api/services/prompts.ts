@@ -149,6 +149,46 @@ Return ONLY valid JSON.`,
   ];
 }
 
+export function curateResumeMessages(args: {
+  baseResume: string;
+  pastedInfo: string;
+  voiceProfile: string;
+  mode: "merge" | "rewrite" | "targeted";
+  targetContext?: string; // role/job/industry to aim for (targeted mode)
+}): ChatMessage[] {
+  const modeGuide =
+    args.mode === "merge"
+      ? "MERGE the pasted information into the existing base resume. Keep everything true, remove duplicates, and produce one clean combined resume."
+      : args.mode === "targeted"
+        ? "REWRITE the resume to target the given context, drawing on both the base resume and the pasted information. Emphasize the most relevant experience."
+        : "REWRITE the resume from scratch using the pasted information as the primary source, keeping any still-relevant detail from the base resume.";
+
+  return [
+    {
+      role: "system",
+      content:
+        "You are an expert resume writer. Output ONLY the complete resume as plain text. No JSON, no code fences, no commentary.",
+    },
+    {
+      role: "user",
+      content: `Produce a COMPLETE, ATS-friendly resume the applicant can submit directly.
+
+TASK: ${modeGuide}
+${args.targetContext ? `\nTARGET CONTEXT:\n${args.targetContext}\n` : ""}
+VOICE PROFILE (write in this style):
+${args.voiceProfile}
+
+EXISTING BASE RESUME:
+${args.baseResume || "(none yet)"}
+
+PASTED INFORMATION FROM THE APPLICANT:
+${args.pastedInfo}
+
+Rules: use only real information provided (never fabricate roles, titles, dates, or metrics); reconcile overlaps sensibly; quantify where the source supports it; use clear CAPS section headers; no tables/columns/graphics; put contact info at the top if available. Output plain text only.`,
+    },
+  ];
+}
+
 export function voiceAnalysisMessages(samples: string[]): ChatMessage[] {
   return [
     {

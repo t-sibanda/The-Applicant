@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2 } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2 } from "lucide-react";
+import { INDUSTRIES } from "../../shared/constants";
 
 type SortKey = "recent" | "relevance" | "quality";
 
@@ -31,7 +32,37 @@ export default function Jobs() {
   const access = trpc.auth.myAccess.useQuery();
   const canAutoApply = !!(access.data?.plan as any)?.autoApply;
   const [keywords, setKeywords] = useState("");
-  const suggestions = trpc.jobs.suggestCompanies.useQuery({ keywords: keywords || undefined });
+  const [industryId, setIndustryId] = useState<string>("");
+  const suggestions = trpc.jobs.suggestCompanies.useQuery({
+    keywords: keywords || undefined,
+    industryId: industryId || undefined,
+  });
+  const prepareFromPaste = trpc.applications.prepareFromPaste.useMutation();
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [pasteDesc, setPasteDesc] = useState("");
+  const [pasteCompany, setPasteCompany] = useState("");
+  const [pasteTitle, setPasteTitle] = useState("");
+
+  const curateFromPaste = async () => {
+    if (!pasteUrl.trim() && pasteDesc.trim().length < 40) {
+      return toast.error("Paste a job link or the job description text");
+    }
+    const t = toast.loading("Reading the job and drafting your documents…");
+    try {
+      await prepareFromPaste.mutateAsync({
+        url: pasteUrl.trim() || undefined,
+        description: pasteDesc.trim() || undefined,
+        companyName: pasteCompany.trim() || undefined,
+        jobTitle: pasteTitle.trim() || undefined,
+      });
+      await utils.applications.list.invalidate();
+      toast.success("Draft ready. Review it on the Applications page.", { id: t });
+      setPasteUrl(""); setPasteDesc(""); setPasteCompany(""); setPasteTitle(""); setPasteOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed", { id: t });
+    }
+  };
 
   const runAutoApply = async () => {
     const t = toast.loading("Auto-preparing applications for your top matches…");
@@ -242,13 +273,59 @@ export default function Jobs() {
             </div>
           </div>
 
+          {/* Paste a job found elsewhere */}
+          <div className="card p-4 mb-4">
+            <button onClick={() => setPasteOpen((v) => !v)} className="flex items-center gap-2 w-full text-left">
+              <ClipboardPaste className="w-4 h-4 text-brand" />
+              <h3 className="font-bold text-sm text-slate-800">Found a job elsewhere?</h3>
+              <span className="text-xs text-slate-400">Paste a link or description and we'll draft your documents</span>
+              <span className="ml-auto text-slate-300 text-lg leading-none">{pasteOpen ? "−" : "+"}</span>
+            </button>
+            {pasteOpen && (
+              <div className="mt-3 space-y-2">
+                <input value={pasteUrl} onChange={(e) => setPasteUrl(e.target.value)} placeholder="Job link (optional)" className="input" />
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <input value={pasteCompany} onChange={(e) => setPasteCompany(e.target.value)} placeholder="Company (optional)" className="input" />
+                  <input value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} placeholder="Role title (optional)" className="input" />
+                </div>
+                <textarea value={pasteDesc} onChange={(e) => setPasteDesc(e.target.value)} className="textarea min-h-[120px]" placeholder="Paste the job description here. If a link is blocked, this is the reliable way." />
+                <div className="flex items-center gap-2">
+                  <button onClick={curateFromPaste} disabled={prepareFromPaste.isPending} className="btn-primary">
+                    {prepareFromPaste.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting…</> : <><Wand2 className="w-4 h-4" /> Curate documents</>}
+                  </button>
+                  <Link to="/applications" className="text-xs text-brand font-semibold hover:underline">View drafts</Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Suggested companies */}
           {(suggestions.data?.length ?? 0) > 0 && (
             <div className="card p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Building2 className="w-4 h-4 text-brand" />
                 <h3 className="font-bold text-sm text-slate-800">Companies for you</h3>
-                <span className="text-xs text-slate-400">based on your profile{keywords ? " & keywords" : ""}</span>
+                <span className="text-xs text-slate-400">
+                  {industryId ? `in ${INDUSTRIES.find((i) => i.id === industryId)?.label}` : `based on your profile${keywords ? " & keywords" : ""}`}
+                </span>
+              </div>
+              {/* Industry filter */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button
+                  onClick={() => setIndustryId("")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${industryId === "" ? "bg-brand text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                >
+                  For me
+                </button>
+                {INDUSTRIES.map((ind) => (
+                  <button
+                    key={ind.id}
+                    onClick={() => setIndustryId(ind.id === industryId ? "" : ind.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${industryId === ind.id ? "bg-brand text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                  >
+                    {ind.label}
+                  </button>
+                ))}
               </div>
               <div className="flex flex-wrap gap-2">
                 {suggestions.data!.map((s) => (
