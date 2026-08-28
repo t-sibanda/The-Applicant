@@ -76,6 +76,10 @@ export const resumeProfiles = pgTable(
     baseResumeJson: jsonb("base_resume_json"),
     voiceProfile: text("voice_profile"),
     voiceJson: jsonb("voice_json"),
+    // "Who is X?" self-discovery answers + AI persona summary.
+    personaJson: jsonb("persona_json"),
+    // Gamified personality results (DISC, Big Five, values, Johari).
+    personalityJson: jsonb("personality_json"),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },

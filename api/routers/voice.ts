@@ -41,6 +41,36 @@ async function getResume(userId: number) {
   return rows.at(0) ?? null;
 }
 
+// ─── "Who is X?" persona + personality types ───
+
+export interface PersonaJson {
+  summary: string; // AI-written "who you are" description
+  traits: string[]; // character/personality descriptors
+  values: string[]; // what matters to the person
+  strengths: string[];
+  interests: string[];
+  narrative: string; // the raw combined answers the user provided
+}
+
+const personaSchema = z.object({
+  summary: z.string(),
+  traits: z.array(z.string()),
+  values: z.array(z.string()),
+  strengths: z.array(z.string()),
+  interests: z.array(z.string()),
+  narrative: z.string(),
+});
+
+// Personality result stored from the gamified quizzes. Free-form-ish so we can
+// add frameworks without a migration; validated loosely.
+const personalitySchema = z.object({
+  disc: z.object({ D: z.number(), I: z.number(), S: z.number(), C: z.number(), primary: z.string() }).optional(),
+  bigFive: z.object({ O: z.number(), C: z.number(), E: z.number(), A: z.number(), N: z.number() }).optional(),
+  values: z.object({ scores: z.record(z.string(), z.number()), top: z.array(z.string()) }).optional(),
+  johari: z.object({ open: z.array(z.string()), hidden: z.array(z.string()), blind: z.array(z.string()) }).optional(),
+  summary: z.string().optional(),
+});
+
 // Convert a structured profile into a system-prompt instruction for generation.
 export function voiceToInstruction(v: VoiceProfileJson): string {
   const scale = (n: number, low: string, high: string) =>
@@ -179,5 +209,112 @@ Apply their correction and return the FULL updated JSON (same fields). Return ON
         { maxTokens: 400 },
       );
       return res.success ? { success: true as const, text: res.content } : { success: false as const, error: res.error };
+    }),
+
+  // ─── "Who is X?" self-discovery ───
+
+  // Read the saved persona + personality.
+  getPersona: authedProcedure.query(async ({ ctx }) => {
+    const r = await getResume(ctx.user.id);
+    return {
+      persona: (r?.personaJson as PersonaJson | null) ?? null,
+      personality: (r?.personalityJson as z.infer<typeof personalitySchema> | null) ?? null,
+    };
+  }),
+
+  // Build a persona from the user's answers (guided or freeform), then fold it
+  // into the voice profile so writing reflects who they are, not just how they
+  // write. Saves both the persona and an enriched voice instruction.
+  buildPersona: authedProcedure
+    .input(
+      z.object({
+        // The combined text the user provided (freeform, guided answers, or a
+        // voice transcription they edited). We keep it human-authored.
+        narrative: z.string().min(30).max(20000),
+        name: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireFeature(ctx.user, "aiOptimizer", "Persona discovery");
+      const r = await getResume(ctx.user.id);
+      if (!r) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Create your resume first." });
+
+      const res = await chatCompletion(
+        [
+          {
+            role: "system",
+            content:
+              "You are a warm, perceptive interviewer helping someone articulate who they are, for use in their job applications. From their own words, produce ONLY valid JSON. Use only what they actually said; never invent facts. Keep the summary in second person and affirming but honest.",
+          },
+          {
+            role: "user",
+            content: `Here is what ${input.name || "the person"} shared about themselves:
+
+${input.narrative}
+
+Return JSON:
+{
+  "summary": "3-5 sentence 'who you are' description in second person, grounded in their words",
+  "traits": ["5-8 character/personality descriptors they revealed"],
+  "values": ["3-6 things that clearly matter to them"],
+  "strengths": ["3-6 strengths evident from what they said"],
+  "interests": ["3-6 interests/passions they mentioned"],
+  "narrative": ${JSON.stringify(input.narrative.slice(0, 6000))}
+}
+Return ONLY valid JSON.`,
+          },
+        ],
+        { maxTokens: 1200 },
+      );
+      if (!res.success || !res.content) return { success: false as const, error: res.error };
+      const parsed = parseJsonFromAI(res.content);
+      const p = personaSchema.safeParse(parsed);
+      if (!p.success) return { success: false as const, error: "Could not build your persona. Try again." };
+
+      // Enrich the voice instruction with the persona so generated documents
+      // reflect the person, while keeping the structured voice profile intact.
+      const v = (r.voiceJson as VoiceProfileJson | null) ?? null;
+      const enriched = v
+        ? `${voiceToInstruction(v)}\n\nWHO THEY ARE: ${p.data.summary} Values: ${p.data.values.join(", ")}. Strengths: ${p.data.strengths.join(", ")}.`
+        : `Write in the authentic voice of this person.\nWHO THEY ARE: ${p.data.summary} Values: ${p.data.values.join(", ")}. Strengths: ${p.data.strengths.join(", ")}.`;
+
+      await getDb()
+        .update(resumeProfiles)
+        .set({ personaJson: p.data, voiceProfile: enriched })
+        .where(eq(resumeProfiles.id, r.id));
+      return { success: true as const, persona: p.data };
+    }),
+
+  // Guided follow-up: the persona bot asks the next best question given what's
+  // been shared so far, to draw out more character. No storage, just a prompt.
+  personaNextQuestion: authedProcedure
+    .input(z.object({ soFar: z.string().max(20000) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireFeature(ctx.user, "aiOptimizer", "Persona discovery");
+      const res = await chatCompletion(
+        [
+          {
+            role: "system",
+            content:
+              "You are a warm interviewer helping someone describe who they are for their job search. Ask ONE short, specific, open question that draws out character, values, or a defining story. Do not repeat topics already covered. Output only the question.",
+          },
+          { role: "user", content: `What they've shared so far:\n${input.soFar || "(nothing yet)"}\n\nAsk the next question.` },
+        ],
+        { maxTokens: 120 },
+      );
+      return res.success ? { success: true as const, question: (res.content ?? "").trim() } : { success: false as const, error: res.error };
+    }),
+
+  // Save gamified personality results and fold a one-line summary into voice.
+  savePersonality: authedProcedure
+    .input(personalitySchema)
+    .mutation(async ({ ctx, input }) => {
+      const r = await getResume(ctx.user.id);
+      if (!r) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Create your resume first." });
+      await getDb()
+        .update(resumeProfiles)
+        .set({ personalityJson: input })
+        .where(eq(resumeProfiles.id, r.id));
+      return { success: true as const };
     }),
 });

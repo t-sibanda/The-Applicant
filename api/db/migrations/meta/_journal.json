@@ -64,6 +64,13 @@
       "when": 1787864041192,
       "tag": "0008_sharp_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787955360663,
+      "tag": "0009_clever_rhino",
+      "breakpoints": true
     }
   ]
 }

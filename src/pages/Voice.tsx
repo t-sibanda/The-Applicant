@@ -4,8 +4,10 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Mic, Sparkles, Loader2, Save, MessageSquare, Wand2, Plus, X, Lock,
+  Mic, Sparkles, Loader2, Save, MessageSquare, Wand2, Plus, X,
 } from "lucide-react";
+import PersonaStudio from "@/components/PersonaStudio";
+import PersonalityGames from "@/components/PersonalityGames";
 
 type Voice = {
   summary: string;
@@ -122,7 +124,13 @@ export default function Voice() {
   return (
     <div className="max-w-3xl">
       <h1 className="page-title">Voice Studio</h1>
-      <p className="page-subtitle mb-5">Show us how you write, then pick, blend, and fine-tune how it sounds.</p>
+      <p className="page-subtitle mb-5">Tell us who you are and show us how you write. Everything then sounds and feels like you.</p>
+
+      {/* Who is X? — self-discovery persona */}
+      <PersonaStudio />
+
+      {/* Gamified personality discovery */}
+      <PersonalityGames />
 
       {/* Analyze */}
       <div className="card p-5 mb-4">
