@@ -22,14 +22,21 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/cn";
 
 const nav = [
+  // Ordered to follow the journey: set up → find → tailor & apply → grow,
+  // then reference/support items grouped at the bottom.
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  // 1. Set up
   { to: "/profiles", label: "Profile & Portfolio", icon: User },
-  { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/resume", label: "Resume", icon: FileText },
-  { to: "/optimizer", label: "AI Optimizer", icon: Bot },
   { to: "/voice", label: "Voice Studio", icon: Mic },
-  { to: "/growth", label: "Growth", icon: GraduationCap },
+  { to: "/resume", label: "Resume", icon: FileText },
+  // 2. Find
+  { to: "/jobs", label: "Jobs", icon: Briefcase },
+  // 3. Tailor & apply
+  { to: "/optimizer", label: "AI Optimizer", icon: Bot },
   { to: "/applications", label: "Applications", icon: Send },
+  // 4. Grow
+  { to: "/growth", label: "Growth", icon: GraduationCap },
+  // Reference / support
   { to: "/demo", label: "Product Demo", icon: Play },
   { to: "/story", label: "Watch the Story", icon: Clapperboard },
   { to: "/support", label: "Help & Support", icon: LifeBuoy },
