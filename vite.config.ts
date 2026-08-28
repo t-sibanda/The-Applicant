@@ -30,5 +30,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Split heavy vendor libs into their own long-cached chunks so the
+        // initial app shell loads faster and updates invalidate less.
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router"],
+          "data-vendor": [
+            "@trpc/client",
+            "@trpc/react-query",
+            "@tanstack/react-query",
+            "superjson",
+          ],
+        },
+      },
+    },
   },
 });

@@ -1,0 +1,20 @@
+{
+  "name": "The Applicant",
+  "short_name": "Applicant",
+  "description": "The job-hunt platform that applies in your voice.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#17131f",
+  "theme_color": "#17131f",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

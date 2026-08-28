@@ -101,6 +101,34 @@ async function fetchWithTimeout(url: string, ms = 6000): Promise<Response> {
   }
 }
 
+/**
+ * Tiny in-memory cache for public board JSON. These endpoints (Greenhouse,
+ * Lever, Ashby) change slowly, so caching the parsed text for a few minutes
+ * makes repeat searches and "search then refine" flows far faster and cuts
+ * outbound requests. Bounded so it can't grow without limit.
+ */
+const BOARD_CACHE = new Map<string, { at: number; text: string }>();
+const BOARD_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const BOARD_CACHE_MAX = 300;
+
+async function fetchBoardText(url: string): Promise<string | null> {
+  const hit = BOARD_CACHE.get(url);
+  const now = Date.now();
+  if (hit && now - hit.at < BOARD_TTL_MS) return hit.text;
+
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) return null;
+  const text = await res.text();
+
+  if (BOARD_CACHE.size >= BOARD_CACHE_MAX) {
+    // Drop the oldest entry to keep the cache bounded.
+    const oldest = BOARD_CACHE.keys().next().value;
+    if (oldest) BOARD_CACHE.delete(oldest);
+  }
+  BOARD_CACHE.set(url, { at: now, text });
+  return text;
+}
+
 // ── Remotive (public API, no key required) ──
 const remotiveSource: JobSource = {
   name: "remotive",
@@ -389,11 +417,11 @@ const greenhouseSource: JobSource = {
 
     const results = await Promise.allSettled(
       toQuery.map(async (token) => {
-        const res = await fetchWithTimeout(
+        const text = await fetchBoardText(
           `https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`,
         );
-        if (!res.ok) return [] as RawJob[];
-        const data = (await res.json()) as {
+        if (!text) return [] as RawJob[];
+        const data = JSON.parse(text) as {
           jobs?: Array<{
             id: number;
             title: string;
@@ -448,11 +476,11 @@ const leverSource: JobSource = {
 
     const results = await Promise.allSettled(
       toQuery.map(async (token) => {
-        const res = await fetchWithTimeout(
+        const text = await fetchBoardText(
           `https://api.lever.co/v0/postings/${token}?mode=json`,
         );
-        if (!res.ok) return [] as RawJob[];
-        const data = (await res.json()) as Array<{
+        if (!text) return [] as RawJob[];
+        const data = JSON.parse(text) as Array<{
           id: string;
           text: string;
           hostedUrl: string;
@@ -500,11 +528,11 @@ const ashbySource: JobSource = {
 
     const results = await Promise.allSettled(
       toQuery.map(async (token) => {
-        const res = await fetchWithTimeout(
+        const text = await fetchBoardText(
           `https://api.ashbyhq.com/posting-api/job-board/${token}`,
         );
-        if (!res.ok) return [] as RawJob[];
-        const data = (await res.json()) as {
+        if (!text) return [] as RawJob[];
+        const data = JSON.parse(text) as {
           jobs?: Array<{
             id: string;
             title: string;

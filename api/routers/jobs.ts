@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
 import { jobs, companies, scrapingLogs } from "../db/schema";
@@ -10,21 +10,6 @@ import { scoreRelevance, passesFilters } from "../services/relevance";
 import { suggestCompanies } from "../services/company-suggest";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
-
-async function upsertCompany(name: string, industry?: string) {
-  const db = getDb();
-  const existing = await db
-    .select()
-    .from(companies)
-    .where(eq(companies.name, name))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  const rows = await db
-    .insert(companies)
-    .values({ name, industry, unrated: true })
-    .returning();
-  return rows[0];
-}
 
 export const jobsRouter = router({
   search: authedProcedure
@@ -88,94 +73,100 @@ export const jobsRouter = router({
 
       const db = getDb();
 
-      // Log each source outcome for transparency.
-      for (const log of outcome.logs) {
-        await db.insert(scrapingLogs).values({
-          userId: ctx.user.id,
-          profileId: profile.id,
-          sourceName: log.source,
-          count: log.count,
-          status: log.status,
-          error: log.error,
-        });
-      }
-
-      // Persist new jobs (dedup against existing rows for this profile).
-      const saved: Array<{ id: number; qualityScore: number | null }> = [];
-      let discarded = 0;
-      let duplicates = 0;
-      for (const raw of outcome.jobs) {
-        // Source filter.
-        if (input.source && raw.sourceName !== input.source) continue;
-        // Hard filters (company/location).
-        if (!passesFilters(raw, relInputs)) {
-          discarded++;
-          continue;
-        }
-        // Relevance: skip low-relevance jobs so irrelevant ones aren't saved.
-        const relevance = scoreRelevance(raw, relInputs);
-        if (relevance < minRel) {
-          discarded++;
-          continue;
-        }
-        // Salary floor (soft): only drop jobs whose KNOWN salary is below the
-        // floor. Jobs without salary data are kept (they may still qualify) and
-        // flagged in the UI as unverified.
-        if (input.minSalary && input.minSalary > 0) {
-          const known = raw.compensation?.max ?? raw.compensation?.min;
-          if (known != null && known < input.minSalary) {
-            discarded++;
-            continue;
-          }
-        }
-
-        const dupe = await db
-          .select({ id: jobs.id })
-          .from(jobs)
-          .where(
-            and(
-              eq(jobs.profileId, profile.id),
-              eq(jobs.dedupeHash, raw.dedupeHash),
-            ),
-          )
-          .limit(1);
-        if (dupe[0]) { duplicates++; continue; }
-
-        const company = await upsertCompany(
-          raw.companyName,
-          profile.targetIndustry ?? undefined,
-        );
-
-        // Quality: we only have comp data here; culture/retention come from
-        // enrichment sources when configured. Unrated otherwise (honesty rule).
-        const above = compAboveMedian(raw, null);
-        const quality = scoreCompany(
-          {
-            cultureScore: company.cultureScore ?? undefined,
-            retentionScore: company.retentionScore ?? undefined,
-          },
-          above,
-        );
-
-        const rows = await db
-          .insert(jobs)
-          .values({
+      // Log each source outcome for transparency (single batched insert).
+      if (outcome.logs.length) {
+        await db.insert(scrapingLogs).values(
+          outcome.logs.map((log) => ({
             userId: ctx.user.id,
             profileId: profile.id,
-            companyId: company.id,
-            title: raw.title,
-            description: raw.description,
-            sourceName: raw.sourceName,
-            sourceUrl: raw.sourceUrl,
-            compensation: raw.compensation ?? undefined,
-            qualityScore: quality.qualityScore ?? undefined,
-            relevanceScore: relevance,
-            postedDate: raw.postedDate ?? undefined,
-            status: JobStatus.NEW,
-            dedupeHash: raw.dedupeHash,
-          })
-          .returning({ id: jobs.id, qualityScore: jobs.qualityScore });
-        saved.push(rows[0]);
+            sourceName: log.source,
+            count: log.count,
+            status: log.status,
+            error: log.error,
+          })),
+        );
+      }
+
+      // ── Filter first (pure, no DB), then persist in batches ──
+      let discarded = 0;
+      let duplicates = 0;
+
+      // Pass 1: apply all filters and de-dupe within this result set.
+      const seenHashes = new Set<string>();
+      const kept: Array<{ raw: (typeof outcome.jobs)[number]; relevance: number }> = [];
+      for (const raw of outcome.jobs) {
+        if (input.source && raw.sourceName !== input.source) continue;
+        if (!passesFilters(raw, relInputs)) { discarded++; continue; }
+        const relevance = scoreRelevance(raw, relInputs);
+        if (relevance < minRel) { discarded++; continue; }
+        if (input.minSalary && input.minSalary > 0) {
+          const known = raw.compensation?.max ?? raw.compensation?.min;
+          if (known != null && known < input.minSalary) { discarded++; continue; }
+        }
+        if (seenHashes.has(raw.dedupeHash)) { duplicates++; continue; }
+        seenHashes.add(raw.dedupeHash);
+        kept.push({ raw, relevance });
+      }
+
+      // One query for existing dedupe hashes on this profile (vs one per job).
+      const existing = kept.length
+        ? await db
+            .select({ h: jobs.dedupeHash })
+            .from(jobs)
+            .where(eq(jobs.profileId, profile.id))
+        : [];
+      const existingHashes = new Set(existing.map((r) => r.h));
+      const fresh = kept.filter((k) => {
+        if (existingHashes.has(k.raw.dedupeHash)) { duplicates++; return false; }
+        return true;
+      });
+
+      // Resolve companies in one pass (dedupe by name, batch-insert new ones).
+      const companyByName = new Map<string, number>();
+      if (fresh.length) {
+        const names = [...new Set(fresh.map((f) => f.raw.companyName))];
+        const found = await db
+          .select({ id: companies.id, name: companies.name })
+          .from(companies)
+          .where(inArray(companies.name, names));
+        for (const c of found) companyByName.set(c.name, c.id);
+        const missing = names.filter((n) => !companyByName.has(n));
+        if (missing.length) {
+          const created = await db
+            .insert(companies)
+            .values(missing.map((name) => ({ name, industry: profile.targetIndustry ?? undefined, unrated: true })))
+            .returning({ id: companies.id, name: companies.name });
+          for (const c of created) companyByName.set(c.name, c.id);
+        }
+      }
+
+      // Batch-insert all fresh jobs in a single statement.
+      let saved: Array<{ id: number }> = [];
+      if (fresh.length) {
+        saved = await db
+          .insert(jobs)
+          .values(
+            fresh.map(({ raw, relevance }) => {
+              const above = compAboveMedian(raw, null);
+              const quality = scoreCompany({}, above);
+              return {
+                userId: ctx.user.id,
+                profileId: profile.id,
+                companyId: companyByName.get(raw.companyName),
+                title: raw.title,
+                description: raw.description,
+                sourceName: raw.sourceName,
+                sourceUrl: raw.sourceUrl,
+                compensation: raw.compensation ?? undefined,
+                qualityScore: quality.qualityScore ?? undefined,
+                relevanceScore: relevance,
+                postedDate: raw.postedDate ?? undefined,
+                status: JobStatus.NEW,
+                dedupeHash: raw.dedupeHash,
+              };
+            }),
+          )
+          .returning({ id: jobs.id });
       }
 
       return {

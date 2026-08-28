@@ -1,25 +1,37 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Profiles from "@/pages/Profiles";
-import Jobs from "@/pages/Jobs";
-import Resume from "@/pages/Resume";
-import Optimizer from "@/pages/Optimizer";
-import Applications from "@/pages/Applications";
-import Billing from "@/pages/Billing";
-import Admin from "@/pages/Admin";
-import Support from "@/pages/Support";
-import Portfolio from "@/pages/Portfolio";
-import Career from "@/pages/Career";
-import Learning from "@/pages/Learning";
-import Account from "@/pages/Account";
-import Voice from "@/pages/Voice";
-import Demo from "@/pages/Demo";
-import Story from "@/pages/Story";
-import Landing from "@/pages/Landing";
+
+// Route-level code splitting: each page loads on demand so the initial bundle
+// stays small and the app shell appears fast.
+const Login = lazy(() => import("@/pages/Login"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Profiles = lazy(() => import("@/pages/Profiles"));
+const Jobs = lazy(() => import("@/pages/Jobs"));
+const Resume = lazy(() => import("@/pages/Resume"));
+const Optimizer = lazy(() => import("@/pages/Optimizer"));
+const Applications = lazy(() => import("@/pages/Applications"));
+const Billing = lazy(() => import("@/pages/Billing"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Support = lazy(() => import("@/pages/Support"));
+const Portfolio = lazy(() => import("@/pages/Portfolio"));
+const Career = lazy(() => import("@/pages/Career"));
+const Learning = lazy(() => import("@/pages/Learning"));
+const Account = lazy(() => import("@/pages/Account"));
+const Voice = lazy(() => import("@/pages/Voice"));
+const Demo = lazy(() => import("@/pages/Demo"));
+const Story = lazy(() => import("@/pages/Story"));
+const Landing = lazy(() => import("@/pages/Landing"));
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
+      Loading…
+    </div>
+  );
+}
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +64,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-center" richColors />
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
@@ -73,6 +86,7 @@ export default function App() {
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
