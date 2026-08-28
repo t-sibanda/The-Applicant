@@ -8,6 +8,7 @@ import { searchAllSources } from "../services/job-sources";
 import { compAboveMedian, scoreCompany, rankByQuality } from "../services/quality";
 import { scoreRelevance, passesFilters } from "../services/relevance";
 import { suggestCompanies } from "../services/company-suggest";
+import { companyInsights } from "../services/company-insights";
 import { analyzeAts } from "../services/ats";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { JobStatus } from "../../shared/constants";
@@ -204,6 +205,14 @@ export const jobsRouter = router({
         industryId: input?.industryId,
         limit: 15,
       });
+    }),
+
+  // Company hiring insights: read a company's public ATS board and analyze
+  // departments hiring, high-volume roles, and rare/niche openings.
+  companyInsights: authedProcedure
+    .input(z.object({ company: z.string().min(1).max(120) }))
+    .query(async ({ input }) => {
+      return companyInsights(input.company);
     }),
 
   // Quick scan: fast, no-AI read of a job against the user's profile + resume.

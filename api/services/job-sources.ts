@@ -111,7 +111,7 @@ const BOARD_CACHE = new Map<string, { at: number; text: string }>();
 const BOARD_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const BOARD_CACHE_MAX = 300;
 
-async function fetchBoardText(url: string): Promise<string | null> {
+export async function fetchBoardText(url: string): Promise<string | null> {
   const hit = BOARD_CACHE.get(url);
   const now = Date.now();
   if (hit && now - hit.at < BOARD_TTL_MS) return hit.text;

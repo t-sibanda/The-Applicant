@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X, BarChart3, TrendingUp, Gem } from "lucide-react";
 import { INDUSTRIES } from "../../shared/constants";
 
 type SortKey = "recent" | "relevance" | "quality";
@@ -57,6 +57,11 @@ export default function Jobs() {
   });
   const prepareFromPaste = trpc.applications.prepareFromPaste.useMutation();
   const quickScan = trpc.jobs.quickScan.useMutation();
+  const [insightsCompany, setInsightsCompany] = useState<string | null>(null);
+  const insights = trpc.jobs.companyInsights.useQuery(
+    { company: insightsCompany ?? "" },
+    { enabled: !!insightsCompany },
+  );
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteUrl, setPasteUrl] = useState("");
   const [pasteDesc, setPasteDesc] = useState("");
@@ -198,15 +203,20 @@ export default function Jobs() {
     await runSearch();
   };
 
-  // Clicking a suggested company: searchable ones set the filter and search;
-  // external ones (Meta, NVIDIA, etc.) open their careers page in a new tab.
-  const pickCompany = async (s: { name: string; searchable: boolean; careersUrl?: string }) => {
+  // Clicking a suggested company: searchable ones open a hiring-insights panel
+  // (with a "search their roles" action inside); external ones open careers.
+  const pickCompany = (s: { name: string; searchable: boolean; careersUrl?: string }) => {
     if (!s.searchable) {
       if (s.careersUrl) window.open(s.careersUrl, "_blank", "noopener");
       return;
     }
-    setCompany(s.name);
-    await runSearch(s.name);
+    setInsightsCompany(s.name);
+  };
+
+  const searchCompany = async (name: string) => {
+    setInsightsCompany(null);
+    setCompany(name);
+    await runSearch(name);
   };
 
   const mark = async (id: number, status: "saved" | "applied") => {
@@ -429,6 +439,115 @@ export default function Jobs() {
             </div>
           )}
 
+          {/* Company hiring insights modal */}
+          {insightsCompany && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setInsightsCompany(null)}>
+              <div className="card max-w-2xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-brand" />
+                    <h3 className="font-bold text-sm text-slate-800">Hiring insights · {insightsCompany}</h3>
+                  </div>
+                  <button onClick={() => setInsightsCompany(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5">
+                  {insights.isLoading && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 py-8 justify-center">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Reading their live openings…
+                    </div>
+                  )}
+
+                  {insights.data && insights.data.ok === false && (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-slate-600">{insights.data.reason}</p>
+                      {insights.data.careersUrl && (
+                        <a href={insights.data.careersUrl} target="_blank" rel="noreferrer" className="btn-ghost mx-auto mt-4 inline-flex"><ExternalLink className="w-4 h-4" /> Open careers page</a>
+                      )}
+                    </div>
+                  )}
+
+                  {insights.data && insights.data.ok && (
+                    <div className="space-y-5">
+                      {/* Summary + headline stats */}
+                      <div className="rounded-xl p-4" style={{ background: "linear-gradient(135deg,#fff7ed,#fff)" }}>
+                        <p className="text-sm text-slate-700 leading-relaxed">{insights.data.summary}</p>
+                        <div className="flex gap-2 mt-3 flex-wrap">
+                          <span className="chip bg-white text-slate-600">{insights.data.totalOpenings} open</span>
+                          <span className="chip bg-white text-slate-600">{insights.data.postedLast7} new this week</span>
+                          <span className="chip bg-white text-slate-600">{insights.data.postedLast30} this month</span>
+                        </div>
+                      </div>
+
+                      {/* Departments hiring */}
+                      {insights.data.departments.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700 uppercase tracking-wide">Departments hiring</h4></div>
+                          <div className="space-y-1.5">
+                            {insights.data.departments.slice(0, 8).map((d) => {
+                              const max = insights.data!.ok ? insights.data!.departments[0].count : 1;
+                              return (
+                                <div key={d.name} className="flex items-center gap-2">
+                                  <div className="w-40 shrink-0 text-xs text-slate-600 truncate">{d.name}</div>
+                                  <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full bg-brand rounded-full" style={{ width: `${Math.max(6, (d.count / max) * 100)}%` }} />
+                                  </div>
+                                  <div className="w-16 text-right text-[11px] text-slate-400">{d.count}{d.recent ? ` · ${d.recent} new` : ""}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* High-volume roles */}
+                      {insights.data.hotTitles.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700 uppercase tracking-wide">Hiring in volume (more seats, more competition)</h4></div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {insights.data.hotTitles.map((t) => (
+                              <a key={t.title} href={t.sampleUrl} target="_blank" rel="noreferrer" className="chip bg-blue-100 text-blue-700 hover:brightness-95">{t.title} ×{t.count}</a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rare / niche openings */}
+                      {insights.data.rareTitles.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2"><Gem className="w-4 h-4 text-violet-500" /><h4 className="font-bold text-xs text-slate-700 uppercase tracking-wide">Niche openings (often less contested)</h4></div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {insights.data.rareTitles.map((t) => (
+                              <a key={t.title} href={t.sampleUrl} target="_blank" rel="noreferrer" className="chip bg-violet-100 text-violet-700 hover:brightness-95">{t.title}</a>
+                            ))}
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-2">Single postings for a distinct role. Fewer applicants tend to compete for these.</p>
+                        </div>
+                      )}
+
+                      {/* Locations */}
+                      {insights.data.topLocations.length > 0 && (
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wide mb-2">Where they're hiring</h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {insights.data.topLocations.map((l) => <span key={l.name} className="chip bg-slate-100 text-slate-600">{l.name} · {l.count}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-[var(--border)] flex items-center gap-2">
+                  <button onClick={() => searchCompany(insightsCompany)} className="btn-primary"><Search className="w-4 h-4" /> Search their roles</button>
+                  {insights.data && insights.data.ok && insights.data.careersUrl && (
+                    <a href={insights.data.careersUrl} target="_blank" rel="noreferrer" className="btn-ghost"><ExternalLink className="w-4 h-4" /> Careers page</a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Suggested companies */}
           {(suggestions.data?.length ?? 0) > 0 && (
             <div className="card p-4 mb-4">
@@ -463,7 +582,7 @@ export default function Jobs() {
                     key={s.name}
                     onClick={() => pickCompany(s)}
                     disabled={search.isPending}
-                    title={s.searchable ? `Search ${s.name} roles` : `Open ${s.name} careers page`}
+                    title={s.searchable ? `Hiring insights for ${s.name}` : `Open ${s.name} careers page`}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all disabled:opacity-50 ${
                       s.searchable
                         ? "bg-brand-light text-brand hover:brightness-95"
@@ -472,12 +591,12 @@ export default function Jobs() {
                   >
                     <Building2 className="w-3.5 h-3.5" />
                     {s.name}
-                    {s.searchable ? <Search className="w-3 h-3 opacity-70" /> : <ExternalLink className="w-3 h-3 opacity-60" />}
+                    {s.searchable ? <BarChart3 className="w-3 h-3 opacity-70" /> : <ExternalLink className="w-3 h-3 opacity-60" />}
                   </button>
                 ))}
               </div>
               <p className="text-[11px] text-slate-400 mt-2">
-                Highlighted companies pull live listings here. Plain ones open the employer's own careers page.
+                Highlighted companies open hiring insights (departments, in-demand and niche roles) with a search action. Plain ones open the employer's own careers page.
               </p>
             </div>
           )}
