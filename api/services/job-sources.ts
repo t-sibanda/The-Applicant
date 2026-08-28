@@ -39,6 +39,24 @@ function searchTerm(query: JobQuery): string {
   return role;
 }
 
+/**
+ * Loose relevance for sources that don't support server-side keyword search.
+ * A job matches if the full phrase appears, OR if most meaningful words of the
+ * role appear somewhere in the haystack. This keeps results exhaustive without
+ * demanding an exact title match.
+ */
+function matchesLoosely(role: string, haystack: string): boolean {
+  const r = role.toLowerCase().trim();
+  const hay = haystack.toLowerCase();
+  if (!r) return true;
+  if (hay.includes(r)) return true;
+  const words = r.split(/\s+/).filter((w) => w.length > 2);
+  if (words.length === 0) return true;
+  const hits = words.filter((w) => hay.includes(w)).length;
+  // Match if at least half the role's words are present.
+  return hits >= Math.ceil(words.length / 2);
+}
+
 export interface RawJob {
   title: string;
   companyName: string;
@@ -188,9 +206,9 @@ const arbeitnowSource: JobSource = {
       .filter((j) => {
         const hay = `${j.title} ${j.company_name} ${j.description}`.toLowerCase();
         if (company && !hay.includes(company)) return false;
-        return !role || hay.includes(role);
+        return matchesLoosely(role, hay);
       })
-      .slice(0, query.limit ?? 25)
+      .slice(0, query.limit ?? 40)
       .map((j) => ({
         title: j.title,
         companyName: j.company_name,
@@ -205,34 +223,56 @@ const arbeitnowSource: JobSource = {
 };
 
 // ── The Muse (free public API, no key) ──
+type MuseJob = {
+  name: string;
+  company?: { name?: string };
+  contents?: string;
+  refs?: { landing_page?: string };
+  locations?: Array<{ name?: string }>;
+  publication_date?: string;
+};
+
 const theMuseSource: JobSource = {
   name: "themuse",
   isEnabled: () => true,
   async search(query) {
-    const params = new URLSearchParams({ page: "0" });
-    if (query.location) params.set("location", query.location);
-    const res = await fetch(`https://www.themuse.com/api/public/jobs?${params.toString()}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`The Muse error ${res.status}`);
-    const data = (await res.json()) as {
-      results?: Array<{
-        name: string;
-        company?: { name?: string };
-        contents?: string;
-        refs?: { landing_page?: string };
-        locations?: Array<{ name?: string }>;
-        publication_date?: string;
-      }>;
-    };
+    const limit = query.limit ?? 40;
     const role = (query.role || query.industry || "").toLowerCase();
     const company = (query.company ?? "").toLowerCase();
-    return (data.results ?? [])
+
+    // The Muse paginates ~20 results per page. Pull several pages so a single
+    // search is exhaustive rather than capped at one page.
+    const collected: MuseJob[] = [];
+    for (let page = 0; page < 5 && collected.length < limit * 3; page++) {
+      const params = new URLSearchParams({ page: String(page) });
+      if (query.location) params.set("location", query.location);
+      let res: Response;
+      try {
+        res = await fetch(`https://www.themuse.com/api/public/jobs?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+        });
+      } catch {
+        break;
+      }
+      if (!res.ok) {
+        if (page === 0) throw new Error(`The Muse error ${res.status}`);
+        break;
+      }
+      const data = (await res.json()) as { results?: MuseJob[] };
+      const results = data.results ?? [];
+      if (results.length === 0) break;
+      collected.push(...results);
+    }
+
+    return collected
       .filter((j) => {
         if (company && !(j.company?.name ?? "").toLowerCase().includes(company)) return false;
-        return !role || j.name.toLowerCase().includes(role);
+        // Loose role match: any meaningful word of the role appears in title/body.
+        if (!role) return true;
+        const hay = `${j.name} ${j.contents ?? ""}`.toLowerCase();
+        return matchesLoosely(role, hay);
       })
-      .slice(0, query.limit ?? 25)
+      .slice(0, limit)
       .map((j) => {
         const company = j.company?.name ?? "Unknown";
         const url = j.refs?.landing_page ?? "";

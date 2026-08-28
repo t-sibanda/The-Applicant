@@ -65,7 +65,7 @@ export const jobsRouter = router({
           input.location ??
           (profile.locationPrefs as { location?: string } | null)?.location ??
           undefined,
-        limit: input.limit ?? 40,
+        limit: input.limit ?? 50,
         maxDaysOld: input.maxDaysOld,
         sortByDate: input.sortByDate,
         minSalary: input.minSalary,

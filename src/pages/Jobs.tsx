@@ -84,7 +84,14 @@ export default function Jobs() {
       const parts = [`${res.saved} new`];
       if (res.duplicates) parts.push(`${res.duplicates} already saved`);
       if (res.discarded) parts.push(`${res.discarded} filtered out`);
-      toast.success(`Search done. ${parts.join(", ")}`);
+      // Per-source breakdown so it's clear where results came from (or failed).
+      const srcParts = (res.logs ?? []).map((l: any) =>
+        l.status === "ok" ? `${l.source}: ${l.count}` : `${l.source}: failed`,
+      );
+      toast.success(`Search done. ${parts.join(", ")}`, {
+        description: srcParts.length ? `Sources — ${srcParts.join(" · ")}` : undefined,
+        duration: 6000,
+      });
       await utils.jobs.list.invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Search failed");
