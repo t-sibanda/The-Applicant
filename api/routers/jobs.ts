@@ -60,6 +60,7 @@ export const jobsRouter = router({
       const outcome = await searchAllSources({
         industry: profile.targetIndustry ?? undefined,
         role: input.keywords || profile.targetRole || undefined,
+        company: input.company || undefined,
         location:
           input.location ??
           (profile.locationPrefs as { location?: string } | null)?.location ??
@@ -78,7 +79,11 @@ export const jobsRouter = router({
         company: input.company,
         location: input.location,
       };
-      const minRel = input.minRelevance ?? 45;
+      // When the user explicitly filters by company (or by their own keywords),
+      // they've already narrowed intent, so don't also gate on profile-role
+      // relevance. A hard company filter already scoped the results.
+      const explicitScope = !!input.company || keywordList.length > 0;
+      const minRel = explicitScope ? 0 : (input.minRelevance ?? 45);
 
       const db = getDb();
 

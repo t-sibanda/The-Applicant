@@ -18,12 +18,25 @@ import { env } from "../lib/env";
 export interface JobQuery {
   industry?: string;
   role?: string;
+  company?: string; // when set, sources search for this employer's postings
   location?: string;
   limit?: number;
   maxDaysOld?: number; // recency filter (supported by Adzuna)
   sortByDate?: boolean;
   minSalary?: number; // minimum annual salary (Adzuna native)
   contractType?: "full_time" | "part_time" | "contract" | "permanent";
+}
+
+/**
+ * Build the free-text search term a source should query with. When a company
+ * is specified we lead with it (and add the role/industry as extra context) so
+ * APIs return that employer's postings instead of a generic batch we'd then
+ * have to filter down to nothing.
+ */
+function searchTerm(query: JobQuery): string {
+  const role = query.role || query.industry || "";
+  if (query.company) return `${query.company} ${role}`.trim();
+  return role;
 }
 
 export interface RawJob {
@@ -57,8 +70,8 @@ const remotiveSource: JobSource = {
   isEnabled: () => env.jobs.remotiveEnabled,
   async search(query) {
     const params = new URLSearchParams();
-    if (query.role) params.set("search", query.role);
-    else if (query.industry) params.set("search", query.industry);
+    const term = searchTerm(query);
+    if (term) params.set("search", term);
     params.set("limit", String(query.limit ?? 25));
 
     const res = await fetch(
@@ -103,6 +116,8 @@ const adzunaSource: JobSource = {
       where: query.location || "",
       "content-type": "application/json",
     });
+    // Company: Adzuna supports filtering by employer name.
+    if (query.company) params.set("company", query.company);
     // Recency: Adzuna supports max_days_old and sort_by=date.
     if (query.maxDaysOld) params.set("max_days_old", String(query.maxDaysOld));
     if (query.sortByDate) params.set("sort_by", "date");
@@ -167,9 +182,14 @@ const arbeitnowSource: JobSource = {
         created_at?: number;
       }>;
     };
-    const term = (query.role || query.industry || "").toLowerCase();
+    const role = (query.role || query.industry || "").toLowerCase();
+    const company = (query.company ?? "").toLowerCase();
     return (data.data ?? [])
-      .filter((j) => !term || `${j.title} ${j.description}`.toLowerCase().includes(term))
+      .filter((j) => {
+        const hay = `${j.title} ${j.company_name} ${j.description}`.toLowerCase();
+        if (company && !hay.includes(company)) return false;
+        return !role || hay.includes(role);
+      })
       .slice(0, query.limit ?? 25)
       .map((j) => ({
         title: j.title,
@@ -205,9 +225,13 @@ const theMuseSource: JobSource = {
         publication_date?: string;
       }>;
     };
-    const term = (query.role || query.industry || "").toLowerCase();
+    const role = (query.role || query.industry || "").toLowerCase();
+    const company = (query.company ?? "").toLowerCase();
     return (data.results ?? [])
-      .filter((j) => !term || j.name.toLowerCase().includes(term))
+      .filter((j) => {
+        if (company && !(j.company?.name ?? "").toLowerCase().includes(company)) return false;
+        return !role || j.name.toLowerCase().includes(role);
+      })
       .slice(0, query.limit ?? 25)
       .map((j) => {
         const company = j.company?.name ?? "Unknown";
@@ -233,9 +257,10 @@ const usaJobsSource: JobSource = {
   isEnabled: () => !!env.jobs.usaJobsApiKey,
   async search(query) {
     const params = new URLSearchParams({
-      Keyword: query.role || query.industry || "",
+      Keyword: searchTerm(query) || "",
       ResultsPerPage: String(query.limit ?? 25),
     });
+    if (query.company) params.set("Organization", query.company);
     if (query.location) params.set("LocationName", query.location);
     const res = await fetch(`https://data.usajobs.gov/api/search?${params.toString()}`, {
       headers: {
