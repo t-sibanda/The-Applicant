@@ -55,6 +55,9 @@ export default function Demo() {
 
   return (
     <div className="max-w-3xl">
+      <div className="flex items-center gap-2 mb-3">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-brand"><ArrowLeft className="w-4 h-4" /> Back to app</Link>
+      </div>
       <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
         <h1 className="page-title">Product Demo</h1>
         <div className="flex items-center gap-2">
