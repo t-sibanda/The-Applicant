@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Counter, Ring } from "@/components/ui";
 import {
   Briefcase, Send, Target, Bot, FileText, User, GraduationCap,
-  LayoutTemplate, ArrowRight, Sparkles,
+  LayoutTemplate, ArrowRight, Sparkles, Mic,
 } from "lucide-react";
 
 const QUICK = [
@@ -68,12 +68,17 @@ export default function Dashboard() {
 
       {isNew && (
         <div className="card p-5 mb-6 animate-fade-in stagger-1">
-          <h2 className="font-bold text-slate-800 mb-3">Get started in 3 steps</h2>
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-brand" />
+            <h2 className="font-bold text-slate-800">Your fastest path to interviews</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Do steps 1 and 2 once. Then repeat 3 and 4 for every role. Start at the top.</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { to: "/profiles", icon: User, t: "Create a profile", d: "Set target industry & role" },
-              { to: "/resume", icon: FileText, t: "Add your resume", d: "The AI tailors from this" },
-              { to: "/jobs", icon: Briefcase, t: "Search jobs", d: "Filtered to your goals" },
+              { to: "/profiles", icon: User, t: "1. Set up your profile", d: "Target role, resume, portfolio" },
+              { to: "/voice", icon: Mic, t: "2. Teach it your voice", d: "So everything sounds like you" },
+              { to: "/jobs", icon: Briefcase, t: "3. Find & scan roles", d: "Match rating before you apply" },
+              { to: "/applications", icon: Send, t: "4. Tailor, apply & track", d: "Saved per job, applied to offer" },
             ].map((st, i) => (
               <Link key={st.to} to={st.to} className={`tile bg-slate-50 animate-fade-in stagger-${i + 2}`}>
                 <st.icon className="w-5 h-5 text-brand mb-2" />

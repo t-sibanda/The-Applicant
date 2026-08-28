@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import {
   Sparkles, Mic, Bot, Briefcase, LayoutTemplate, GraduationCap, BookOpen,
-  Check, Shield, ArrowRight, Building2, Play,
+  Check, Shield, ArrowRight, Building2, Play, User, ScanSearch, Send, Trophy,
 } from "lucide-react";
 
 /**
@@ -19,10 +19,47 @@ const PRICING = {
 const FEATURES = [
   { icon: Mic, title: "Voice Studio", desc: "It learns how you write, shows you what it heard, and lets you fine-tune it. Every document then sounds like you." },
   { icon: Bot, title: "AI Optimizer", desc: "Tailor resumes, generate cover letters, score ATS fit, and analyze skill gaps." },
-  { icon: Briefcase, title: "Smart Job Search", desc: "Multiple compliant sources, relevance ranking, salary and recency filters." },
+  { icon: Briefcase, title: "Smart Job Search", desc: "Many compliant sources plus company hiring insights, ranked by relevance." },
   { icon: LayoutTemplate, title: "Portfolio Builder", desc: "An interactive, shareable page that markets you to interviewers." },
-  { icon: GraduationCap, title: "Career Builder", desc: "Simulate your path and find the certifications that make you competitive." },
-  { icon: BookOpen, title: "Learning Center", desc: "Turn saved articles and tips into a personalized action plan." },
+  { icon: GraduationCap, title: "Growth", desc: "Plan your path, find the right certifications, and turn saved tips into action." },
+  { icon: BookOpen, title: "Track everything", desc: "Every tailored document is saved per job, with a pipeline from applied to offer." },
+];
+
+// The fastest path to results. This is the directive spine of the page:
+// four concrete steps, each pointing at the exact place to do it.
+const STEPS = [
+  {
+    n: "1",
+    icon: User,
+    title: "Set up your profile & voice",
+    desc: "Add your target role, paste your resume or LinkedIn export, and let Voice Studio learn how you write. Do this once.",
+    where: "Profile · Resume · Voice Studio",
+    minutes: "~5 min",
+  },
+  {
+    n: "2",
+    icon: ScanSearch,
+    title: "Find and scan the right roles",
+    desc: "Search matched jobs, see which companies are hiring and where, then quick-scan any role for a match rating before you commit.",
+    where: "Jobs",
+    minutes: "minutes",
+  },
+  {
+    n: "3",
+    icon: Send,
+    title: "Tailor, then apply in your voice",
+    desc: "One click tailors your resume and cover letter to the job, scores it against the ATS, and you review and apply. You stay in control.",
+    where: "AI Optimizer · Applications",
+    minutes: "one click",
+  },
+  {
+    n: "4",
+    icon: Trophy,
+    title: "Track, grow, and land offers",
+    desc: "Every document is saved per job. Track each application from applied to offer, and sharpen your profile between rounds.",
+    where: "Applications · Growth",
+    minutes: "ongoing",
+  },
 ];
 
 function Nav() {
@@ -47,13 +84,49 @@ export default function Landing() {
           <div className="absolute right-0 top-8 w-72 h-72 rounded-full hidden md:block" style={{ background: "radial-gradient(circle, rgba(245,184,0,0.28), transparent 70%)" }} />
           <div className="relative max-w-2xl">
             <div className="flex items-center gap-2 text-[var(--gold)] text-xs font-bold uppercase tracking-[0.15em] mb-3"><Sparkles className="w-4 h-4" /> AI job-hunt platform</div>
-            <h1 className="hero-serif text-4xl md:text-6xl text-white">Apply in your voice.</h1>
-            <p className="text-white/60 text-lg mt-5 max-w-xl">The Applicant helps you find better jobs and write every application so it actually sounds like you. You stay in control the whole way.</p>
+            <h1 className="hero-serif text-4xl md:text-6xl text-white">Apply in your voice.<br />Land interviews faster.</h1>
+            <p className="text-white/60 text-lg mt-5 max-w-xl">Find better-matched jobs and write every application so it sounds like you. Four simple steps take you from setup to interviews and offers, and you stay in control the whole way.</p>
             <div className="flex gap-3 mt-8 flex-wrap">
-              <Link to="/login" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-[var(--gold)] text-slate-900 font-bold hover:brightness-105">Get started free <ArrowRight className="w-4 h-4" /></Link>
-              <Link to="/story" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-white/25 text-white font-semibold hover:bg-white/10"><Play className="w-4 h-4" /> Watch Maya's story</Link>
+              <Link to="/login" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-[var(--gold)] text-slate-900 font-bold hover:brightness-105">Start free in 5 minutes <ArrowRight className="w-4 h-4" /></Link>
+              <Link to="/story" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-white/25 text-white font-semibold hover:bg-white/10"><Play className="w-4 h-4" /> Watch the 90-sec journey</Link>
+            </div>
+            <div className="flex items-center gap-4 mt-5 text-white/40 text-xs">
+              <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> No card to start</span>
+              <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> You approve every apply</span>
+              <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Your data stays yours</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* How it works — the directive path to results */}
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 text-[var(--gold)] text-xs font-bold uppercase tracking-[0.15em] mb-2"><Sparkles className="w-4 h-4" /> Your path to offers</div>
+          <h2 className="text-2xl font-bold text-white font-serif-display">From sign-up to interviews, in four steps</h2>
+          <p className="text-white/50 mt-2">Do step one once. Repeat two and three per job. That's the whole loop.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {STEPS.map((s, i) => (
+            <div key={s.n} className="card p-5 relative card-hover">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-[var(--gold)] text-slate-900 font-extrabold flex items-center justify-center text-sm">{s.n}</div>
+                <s.icon className="w-5 h-5 text-brand" />
+              </div>
+              <div className="font-bold text-slate-800 text-sm">{s.title}</div>
+              <div className="text-xs text-slate-500 mt-1 leading-relaxed">{s.desc}</div>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border)]">
+                <span className="text-[10px] font-semibold text-brand">{s.where}</span>
+                <span className="text-[10px] text-slate-400">{s.minutes}</span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <ArrowRight className="w-5 h-5 text-white/20 absolute -right-3.5 top-1/2 -translate-y-1/2 hidden lg:block" />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-8">
+          <Link to="/login" className="inline-flex items-center gap-2 h-11 px-6 rounded-full bg-[var(--gold)] text-slate-900 font-bold hover:brightness-105">Start with step one <ArrowRight className="w-4 h-4" /></Link>
         </div>
       </div>
 
