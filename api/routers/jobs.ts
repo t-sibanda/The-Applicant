@@ -7,6 +7,7 @@ import { getActiveProfile } from "./profiles";
 import { searchAllSources } from "../services/job-sources";
 import { compAboveMedian, scoreCompany, rankByQuality } from "../services/quality";
 import { scoreRelevance, passesFilters } from "../services/relevance";
+import { suggestCompanies } from "../services/company-suggest";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
 
@@ -184,6 +185,23 @@ export const jobsRouter = router({
         duplicates,
         logs: outcome.logs,
       };
+    }),
+
+  // Company suggestions ranked against the active profile + optional keywords.
+  suggestCompanies: authedProcedure
+    .input(z.object({ keywords: z.string().max(300).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const profile = await getActiveProfile(ctx.user.id);
+      const keywordList = (input?.keywords ?? "")
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+      return suggestCompanies({
+        industry: profile?.targetIndustry,
+        role: profile?.targetRole,
+        keywords: keywordList,
+        limit: 12,
+      });
     }),
 
   list: authedProcedure

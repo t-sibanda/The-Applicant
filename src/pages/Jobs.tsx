@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2 } from "lucide-react";
 
 type SortKey = "recent" | "relevance" | "quality";
 
@@ -30,6 +30,8 @@ export default function Jobs() {
   const autoApply = trpc.applications.autoApply.useMutation();
   const access = trpc.auth.myAccess.useQuery();
   const canAutoApply = !!(access.data?.plan as any)?.autoApply;
+  const [keywords, setKeywords] = useState("");
+  const suggestions = trpc.jobs.suggestCompanies.useQuery({ keywords: keywords || undefined });
 
   const runAutoApply = async () => {
     const t = toast.loading("Auto-preparing applications for your top matches…");
@@ -65,16 +67,16 @@ export default function Jobs() {
 
   const [location, setLocation] = useState("");
   const [company, setCompany] = useState("");
-  const [keywords, setKeywords] = useState("");
   const [minRelevance, setMinRelevance] = useState(45);
   const [maxDaysOld, setMaxDaysOld] = useState(0); // 0 = any time
   const [minSalary, setMinSalary] = useState(0);
   const [contractType, setContractType] = useState<"" | "full_time" | "part_time" | "contract" | "permanent">("");
 
-  const runSearch = async () => {
+  const runSearch = async (companyOverride?: string) => {
+    const companyValue = companyOverride ?? (company || undefined);
     try {
       const res = await search.mutateAsync({
-        qualityFilter, location: location || undefined, company: company || undefined,
+        qualityFilter, location: location || undefined, company: companyValue,
         keywords: keywords || undefined, minRelevance,
         maxDaysOld: maxDaysOld > 0 ? maxDaysOld : undefined,
         sortByDate: maxDaysOld > 0,
@@ -103,6 +105,17 @@ export default function Jobs() {
     await clear.mutateAsync();
     await utils.jobs.list.invalidate();
     await runSearch();
+  };
+
+  // Clicking a suggested company: searchable ones set the filter and search;
+  // external ones (Meta, NVIDIA, etc.) open their careers page in a new tab.
+  const pickCompany = async (s: { name: string; searchable: boolean; careersUrl?: string }) => {
+    if (!s.searchable) {
+      if (s.careersUrl) window.open(s.careersUrl, "_blank", "noopener");
+      return;
+    }
+    setCompany(s.name);
+    await runSearch(s.name);
   };
 
   const mark = async (id: number, status: "saved" | "applied") => {
@@ -150,7 +163,7 @@ export default function Jobs() {
             <button onClick={refresh} disabled={search.isPending || clear.isPending} className="btn-ghost h-10" title="Clear and fetch the latest">
               {clear.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
             </button>
-            <button onClick={runSearch} disabled={search.isPending} className="btn-primary h-10">
+            <button onClick={() => runSearch()} disabled={search.isPending} className="btn-primary h-10">
               {search.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching…</> : <><Search className="w-4 h-4" /> Search</>}
             </button>
           </div>
@@ -229,6 +242,39 @@ export default function Jobs() {
             </div>
           </div>
 
+          {/* Suggested companies */}
+          {(suggestions.data?.length ?? 0) > 0 && (
+            <div className="card p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-4 h-4 text-brand" />
+                <h3 className="font-bold text-sm text-slate-800">Companies for you</h3>
+                <span className="text-xs text-slate-400">based on your profile{keywords ? " & keywords" : ""}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.data!.map((s) => (
+                  <button
+                    key={s.name}
+                    onClick={() => pickCompany(s)}
+                    disabled={search.isPending}
+                    title={s.searchable ? `Search ${s.name} roles` : `Open ${s.name} careers page`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all disabled:opacity-50 ${
+                      s.searchable
+                        ? "bg-brand-light text-brand hover:brightness-95"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    {s.name}
+                    {s.searchable ? <Search className="w-3 h-3 opacity-70" /> : <ExternalLink className="w-3 h-3 opacity-60" />}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">
+                Highlighted companies pull live listings here. Plain ones open the employer's own careers page.
+              </p>
+            </div>
+          )}
+
           {/* Status tabs */}
           <div className="flex gap-1.5 mb-4">
             {(["all", "new", "saved", "applied"] as const).map((t) => (
@@ -296,7 +342,7 @@ export default function Jobs() {
               <div className="card p-8 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3"><Briefcase className="w-6 h-6 text-slate-300" /></div>
                 <p className="text-sm text-slate-500 mb-4">{statusTab === "all" ? "No jobs yet. Run a search to pull listings for your active profile." : `No ${statusTab} jobs.`}</p>
-                {statusTab === "all" && <button onClick={runSearch} disabled={search.isPending} className="btn-primary mx-auto">{search.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching…</> : <><Search className="w-4 h-4" /> Search jobs now</>}</button>}
+                {statusTab === "all" && <button onClick={() => runSearch()} disabled={search.isPending} className="btn-primary mx-auto">{search.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching…</> : <><Search className="w-4 h-4" /> Search jobs now</>}</button>}
               </div>
             )}
           </div>

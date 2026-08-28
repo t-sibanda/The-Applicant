@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { env } from "../lib/env";
-import { GREENHOUSE_BOARDS, LEVER_BOARDS, parseBoardEnv } from "./ats-boards";
+import { GREENHOUSE_BOARDS, LEVER_BOARDS, ASHBY_BOARDS, parseBoardEnv } from "./ats-boards";
 
 /**
  * Provider-agnostic job sourcing. Only ToS-compliant sources are included —
@@ -484,6 +484,69 @@ const leverSource: JobSource = {
   },
 };
 
+// ── Ashby (public per-company job-board API, no key) ──
+const ashbySource: JobSource = {
+  name: "ashby",
+  isEnabled: () => env.jobs.ashbyEnabled,
+  async search(query) {
+    const boards = parseBoardEnv(env.jobs.ashbyBoards) ?? ASHBY_BOARDS;
+    const role = (query.role || query.industry || "").toLowerCase();
+    const company = (query.company ?? "").toLowerCase();
+
+    const targets = company
+      ? boards.filter((b) => b.includes(company) || company.includes(b))
+      : boards;
+    const toQuery = (targets.length ? targets : boards).slice(0, 40);
+
+    const results = await Promise.allSettled(
+      toQuery.map(async (token) => {
+        const res = await fetchWithTimeout(
+          `https://api.ashbyhq.com/posting-api/job-board/${token}`,
+        );
+        if (!res.ok) return [] as RawJob[];
+        const data = (await res.json()) as {
+          jobs?: Array<{
+            id: string;
+            title: string;
+            location?: string;
+            isRemote?: boolean | null;
+            jobUrl?: string;
+            applyUrl?: string;
+            descriptionHtml?: string;
+            publishedAt?: string;
+            employmentType?: string;
+          }>;
+        };
+        return (data.jobs ?? []).map((j) => {
+          const url = j.jobUrl || j.applyUrl || "";
+          const loc = j.location || (j.isRemote ? "Remote" : null);
+          const desc = (j.descriptionHtml ?? "")
+            .replace(/<[^>]*>/g, " ")
+            .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+            .replace(/\s+/g, " ")
+            .slice(0, 4000);
+          return {
+            title: j.title,
+            companyName: token.charAt(0).toUpperCase() + token.slice(1),
+            description: desc,
+            sourceName: "ashby",
+            sourceUrl: url,
+            location: loc,
+            compensation: null,
+            postedDate: j.publishedAt ?? null,
+            dedupeHash: hashJob(j.title, token, url),
+          } as RawJob;
+        });
+      }),
+    );
+
+    const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    return all
+      .filter((j) => matchesLoosely(role, `${j.title} ${j.description}`))
+      .slice(0, (query.limit ?? 40) * 2);
+  },
+};
+
 const registry: JobSource[] = [
   remotiveSource,
   adzunaSource,
@@ -492,6 +555,7 @@ const registry: JobSource[] = [
   usaJobsSource,
   greenhouseSource,
   leverSource,
+  ashbySource,
 ];
 
 export function enabledSources(): JobSource[] {

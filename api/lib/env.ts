@@ -71,6 +71,8 @@ const jobs = {
   greenhouseBoards: optional("JOBS_GREENHOUSE_BOARDS"),
   leverEnabled: optional("JOBS_LEVER_ENABLED", "true") === "true",
   leverBoards: optional("JOBS_LEVER_BOARDS"),
+  ashbyEnabled: optional("JOBS_ASHBY_ENABLED", "true") === "true",
+  ashbyBoards: optional("JOBS_ASHBY_BOARDS"),
 };
 
 export const env = {
@@ -112,6 +114,7 @@ export function integrationStatus() {
       remotive: env.jobs.remotiveEnabled,
       greenhouse: env.jobs.greenhouseEnabled,
       lever: env.jobs.leverEnabled,
+      ashby: env.jobs.ashbyEnabled,
     },
   };
 }
