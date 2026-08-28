@@ -14,19 +14,20 @@ const QUICK = [
   { to: "/career", icon: GraduationCap, title: "Career Builder", desc: "Plan your path", grad: "linear-gradient(135deg,#d1fae5,#a7f3d0)", color: "#047857" },
 ];
 
-function StatCard({ icon: Icon, label, value, suffix, color, delay }: { icon: React.ElementType; label: string; value: number; suffix?: string; color: string; delay: number }) {
+function StatCard({ icon: Icon, label, value, suffix, color, delay, to }: { icon: React.ElementType; label: string; value: number; suffix?: string; color: string; delay: number; to: string }) {
   return (
-    <div className={`card p-4 card-hover animate-fade-in stagger-${delay}`}>
+    <Link to={to} className={`card p-4 card-hover animate-fade-in stagger-${delay} group block`}>
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}18` }}>
           <Icon className="w-5 h-5" style={{ color }} />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-2xl font-extrabold text-slate-900 font-display"><Counter value={value} suffix={suffix} /></div>
           <div className="text-xs text-slate-500">{label}</div>
         </div>
+        <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -87,11 +88,11 @@ export default function Dashboard() {
       {/* Stats + match ring */}
       <div className="grid md:grid-cols-[1fr_auto] gap-4 mb-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard icon={Briefcase} label="Jobs found" value={s?.totalJobs ?? 0} color="#1d4ed8" delay={1} />
-          <StatCard icon={Send} label="Applications" value={s?.totalApplications ?? 0} color="#c2410c" delay={2} />
-          <StatCard icon={Target} label="Interviews" value={s?.interviews ?? 0} color="#047857" delay={3} />
+          <StatCard icon={Briefcase} label="Jobs found" value={s?.totalJobs ?? 0} color="#1d4ed8" delay={1} to="/jobs" />
+          <StatCard icon={Send} label="Applications" value={s?.totalApplications ?? 0} color="#c2410c" delay={2} to="/applications" />
+          <StatCard icon={Target} label="Interviews" value={s?.interviews ?? 0} color="#047857" delay={3} to="/applications" />
         </div>
-        <div className="card p-5 flex items-center gap-4 animate-fade-in stagger-3">
+        <Link to="/applications" className="card p-5 flex items-center gap-4 animate-fade-in stagger-3 card-hover group">
           <div className="relative">
             <Ring value={s?.matchRate ?? 0} />
             <div className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-800">
@@ -99,10 +100,10 @@ export default function Dashboard() {
             </div>
           </div>
           <div>
-            <div className="font-semibold text-sm text-slate-800">Match rate</div>
+            <div className="font-semibold text-sm text-slate-800 flex items-center gap-1">Match rate <ArrowRight className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" /></div>
             <div className="text-xs text-slate-500 max-w-[140px]">Interviews per application</div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Quick actions */}
