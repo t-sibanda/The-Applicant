@@ -68,6 +68,62 @@ export function scoreRelevance(job: RawJob, inputs: RelevanceInputs): number {
   return Math.round((score / weightUsed) * 100);
 }
 
+// US state name <-> abbreviation, so a "California" filter also matches "CA".
+const US_STATES: Record<string, string> = {
+  alabama: "al", alaska: "ak", arizona: "az", arkansas: "ar", california: "ca",
+  colorado: "co", connecticut: "ct", delaware: "de", florida: "fl", georgia: "ga",
+  hawaii: "hi", idaho: "id", illinois: "il", indiana: "in", iowa: "ia",
+  kansas: "ks", kentucky: "ky", louisiana: "la", maine: "me", maryland: "md",
+  massachusetts: "ma", michigan: "mi", minnesota: "mn", mississippi: "ms",
+  missouri: "mo", montana: "mt", nebraska: "ne", nevada: "nv",
+  "new hampshire": "nh", "new jersey": "nj", "new mexico": "nm", "new york": "ny",
+  "north carolina": "nc", "north dakota": "nd", ohio: "oh", oklahoma: "ok",
+  oregon: "or", pennsylvania: "pa", "rhode island": "ri", "south carolina": "sc",
+  "south dakota": "sd", tennessee: "tn", texas: "tx", utah: "ut", vermont: "vt",
+  virginia: "va", washington: "wa", "west virginia": "wv", wisconsin: "wi",
+  wyoming: "wy", "district of columbia": "dc",
+};
+
+/**
+ * Does a job plausibly match a user's location filter?
+ * Forgiving by design: matches the structured location field or the text,
+ * handles US state names/abbreviations, and treats "remote"/"anywhere" broadly.
+ * Jobs with NO location info at all are NOT rejected (they may still qualify).
+ */
+function locationMatches(job: RawJob, filter: string): boolean {
+  const loc = filter.trim().toLowerCase();
+  if (!loc) return true;
+
+  const jobLoc = (job.location ?? "").toLowerCase();
+  const text = `${jobLoc} ${job.title} ${job.description}`.toLowerCase();
+
+  // Remote / anywhere: match remote-friendly listings.
+  const remoteWords = ["remote", "anywhere", "worldwide", "work from home"];
+  if (remoteWords.some((w) => loc.includes(w))) {
+    return remoteWords.some((w) => text.includes(w));
+  }
+  const jobIsRemote = remoteWords.some((w) => text.includes(w));
+
+  // Build the set of terms that should count as a location hit.
+  const terms = new Set<string>([loc]);
+  if (US_STATES[loc]) terms.add(US_STATES[loc]); // full name -> abbrev
+  const abbrevToName = Object.entries(US_STATES).find(([, ab]) => ab === loc);
+  if (abbrevToName) terms.add(abbrevToName[0]); // abbrev -> full name
+  // Also match individual words of a multi-word location (e.g. "new york").
+  for (const w of loc.split(/[\s,]+/).filter((x) => x.length > 2)) terms.add(w);
+
+  // Match against the structured location first, then any text.
+  const hit = [...terms].some((t) => {
+    if (!t) return false;
+    // Word-boundary match for short state abbreviations to avoid false hits.
+    if (t.length <= 3) return new RegExp(`\\b${t}\\b`).test(text);
+    return text.includes(t);
+  });
+
+  // Remote jobs are location-flexible, so they pass most location filters.
+  return hit || jobIsRemote;
+}
+
 /** Hard filters: exclude jobs that fail an explicit company/location filter. */
 export function passesFilters(job: RawJob, inputs: RelevanceInputs): boolean {
   if (inputs.company) {
@@ -75,11 +131,16 @@ export function passesFilters(job: RawJob, inputs: RelevanceInputs): boolean {
       return false;
   }
   if (inputs.location) {
-    const loc = inputs.location.toLowerCase();
-    const text = `${job.title} ${job.description}`.toLowerCase();
-    // "remote" always passes a remote filter; otherwise require a mention.
-    if (!text.includes(loc) && !(loc === "remote" && text.includes("remote")))
+    // If the job carries no location signal anywhere, keep it rather than
+    // discard on missing data. Otherwise require a plausible match.
+    const hasAnyLocationSignal =
+      !!(job.location && job.location.trim()) ||
+      /\b(remote|anywhere|worldwide|onsite|hybrid|,\s*[a-z]{2}\b)/i.test(
+        `${job.title} ${job.description}`,
+      );
+    if (hasAnyLocationSignal && !locationMatches(job, inputs.location)) {
       return false;
+    }
   }
   return true;
 }

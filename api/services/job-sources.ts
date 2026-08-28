@@ -32,6 +32,7 @@ export interface RawJob {
   description: string;
   sourceName: string;
   sourceUrl: string;
+  location?: string | null; // structured location from the source when available
   compensation?: { min?: number; max?: number; currency?: string } | null;
   postedDate?: string | null; // ISO date when available (Adzuna)
   dedupeHash: string;
@@ -72,6 +73,7 @@ const remotiveSource: JobSource = {
         description: string;
         url: string;
         salary?: string;
+        candidate_required_location?: string;
       }>;
     };
     return (data.jobs ?? []).map((j) => ({
@@ -80,6 +82,7 @@ const remotiveSource: JobSource = {
       description: (j.description ?? "").replace(/<[^>]*>/g, "").slice(0, 4000),
       sourceName: "remotive",
       sourceUrl: j.url,
+      location: j.candidate_required_location || "Remote",
       compensation: null,
       dedupeHash: hashJob(j.title, j.company_name, j.url),
     }));
@@ -120,6 +123,7 @@ const adzunaSource: JobSource = {
         company?: { display_name?: string };
         description: string;
         redirect_url: string;
+        location?: { display_name?: string };
         salary_min?: number;
         salary_max?: number;
         created?: string;
@@ -133,6 +137,7 @@ const adzunaSource: JobSource = {
         description: (j.description ?? "").slice(0, 4000),
         sourceName: "adzuna",
         sourceUrl: j.redirect_url,
+        location: j.location?.display_name ?? null,
         compensation:
           j.salary_min || j.salary_max
             ? { min: j.salary_min, max: j.salary_max, currency: "USD" }
@@ -196,6 +201,7 @@ const theMuseSource: JobSource = {
         company?: { name?: string };
         contents?: string;
         refs?: { landing_page?: string };
+        locations?: Array<{ name?: string }>;
         publication_date?: string;
       }>;
     };
@@ -212,6 +218,7 @@ const theMuseSource: JobSource = {
           description: (j.contents ?? "").replace(/<[^>]*>/g, "").slice(0, 4000),
           sourceName: "themuse",
           sourceUrl: url,
+          location: (j.locations ?? []).map((l) => l.name).filter(Boolean).join(", ") || null,
           compensation: null,
           postedDate: j.publication_date ?? null,
           dedupeHash: hashJob(j.name, company, url),
@@ -246,6 +253,7 @@ const usaJobsSource: JobSource = {
             PositionTitle?: string;
             OrganizationName?: string;
             PositionURI?: string;
+            PositionLocationDisplay?: string;
             UserArea?: { Details?: { JobSummary?: string } };
             PositionRemuneration?: Array<{ MinimumRange?: string; MaximumRange?: string }>;
             PublicationStartDate?: string;
@@ -266,6 +274,7 @@ const usaJobsSource: JobSource = {
         description: (d.UserArea?.Details?.JobSummary ?? "").slice(0, 4000),
         sourceName: "usajobs",
         sourceUrl: url,
+        location: d.PositionLocationDisplay ?? null,
         compensation: rem?.MinimumRange
           ? { min: Number(rem.MinimumRange), max: Number(rem.MaximumRange), currency: "USD" }
           : null,
