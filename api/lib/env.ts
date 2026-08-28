@@ -65,6 +65,12 @@ const jobs = {
   adzunaAppKey: optional("JOBS_ADZUNA_APP_KEY"),
   usaJobsApiKey: optional("JOBS_USAJOBS_API_KEY"),
   remotiveEnabled: optional("JOBS_REMOTIVE_ENABLED", "true") === "true",
+  // Public ATS board aggregation (free, no key). On by default; set to
+  // "false" to disable. Optional comma-separated token overrides widen reach.
+  greenhouseEnabled: optional("JOBS_GREENHOUSE_ENABLED", "true") === "true",
+  greenhouseBoards: optional("JOBS_GREENHOUSE_BOARDS"),
+  leverEnabled: optional("JOBS_LEVER_ENABLED", "true") === "true",
+  leverBoards: optional("JOBS_LEVER_BOARDS"),
 };
 
 export const env = {
@@ -104,6 +110,8 @@ export function integrationStatus() {
       adzuna: !!(env.jobs.adzunaAppId && env.jobs.adzunaAppKey),
       usaJobs: !!env.jobs.usaJobsApiKey,
       remotive: env.jobs.remotiveEnabled,
+      greenhouse: env.jobs.greenhouseEnabled,
+      lever: env.jobs.leverEnabled,
     },
   };
 }

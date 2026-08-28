@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { env } from "../lib/env";
+import { GREENHOUSE_BOARDS, LEVER_BOARDS, parseBoardEnv } from "./ats-boards";
 
 /**
  * Provider-agnostic job sourcing. Only ToS-compliant sources are included —
@@ -9,7 +10,11 @@ import { env } from "../lib/env";
  * Currently included:
  *  - Remotive: public jobs API (https://remotive.com/api/remote-jobs)
  *  - Adzuna: official API (requires app id + key)
+ *  - Arbeitnow: free public job-board API
+ *  - The Muse: free public jobs API (multi-page)
  *  - USAJOBS: official US government API (requires API key)
+ *  - Greenhouse: public per-company board API, aggregated across curated boards
+ *  - Lever: public per-company postings API, aggregated across curated boards
  *
  * Additional compliant sources can be added as new adapters implementing
  * the JobSource interface without touching the rest of the app.
@@ -80,6 +85,20 @@ function hashJob(title: string, company: string, url: string): string {
     .update(`${title.toLowerCase()}|${company.toLowerCase()}|${url}`)
     .digest("hex")
     .slice(0, 64);
+}
+
+/** Fetch with a hard timeout so one slow board can't stall a whole search. */
+async function fetchWithTimeout(url: string, ms = 6000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── Remotive (public API, no key required) ──
@@ -350,12 +369,129 @@ const usaJobsSource: JobSource = {
   },
 };
 
+// ── Greenhouse (public per-company board API, no key) ──
+// Aggregated across a curated set of employer boards, filtered by role/keywords.
+const greenhouseSource: JobSource = {
+  name: "greenhouse",
+  isEnabled: () => env.jobs.greenhouseEnabled,
+  async search(query) {
+    const boards =
+      parseBoardEnv(env.jobs.greenhouseBoards) ?? GREENHOUSE_BOARDS;
+    const role = (query.role || query.industry || "").toLowerCase();
+    const company = (query.company ?? "").toLowerCase();
+
+    // If a company filter is set and it matches a known board token, query only
+    // that board (fast + exact). Otherwise fan out across the curated set.
+    const targets = company
+      ? boards.filter((b) => b.includes(company) || company.includes(b))
+      : boards;
+    const toQuery = (targets.length ? targets : boards).slice(0, 40);
+
+    const results = await Promise.allSettled(
+      toQuery.map(async (token) => {
+        const res = await fetchWithTimeout(
+          `https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`,
+        );
+        if (!res.ok) return [] as RawJob[];
+        const data = (await res.json()) as {
+          jobs?: Array<{
+            id: number;
+            title: string;
+            absolute_url: string;
+            company_name?: string;
+            location?: { name?: string };
+            content?: string;
+            updated_at?: string;
+          }>;
+        };
+        return (data.jobs ?? []).map((j) => {
+          const companyName = j.company_name || token;
+          const desc = (j.content ?? "")
+            .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+            .replace(/<[^>]*>/g, " ")
+            .slice(0, 4000);
+          return {
+            title: j.title,
+            companyName,
+            description: desc,
+            sourceName: "greenhouse",
+            sourceUrl: j.absolute_url,
+            location: j.location?.name ?? null,
+            compensation: null,
+            postedDate: j.updated_at ?? null,
+            dedupeHash: hashJob(j.title, companyName, j.absolute_url),
+          } as RawJob;
+        });
+      }),
+    );
+
+    const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    return all
+      .filter((j) => matchesLoosely(role, `${j.title} ${j.description}`))
+      .slice(0, (query.limit ?? 40) * 2);
+  },
+};
+
+// ── Lever (public per-company postings API, no key) ──
+const leverSource: JobSource = {
+  name: "lever",
+  isEnabled: () => env.jobs.leverEnabled,
+  async search(query) {
+    const boards = parseBoardEnv(env.jobs.leverBoards) ?? LEVER_BOARDS;
+    const role = (query.role || query.industry || "").toLowerCase();
+    const company = (query.company ?? "").toLowerCase();
+
+    const targets = company
+      ? boards.filter((b) => b.includes(company) || company.includes(b))
+      : boards;
+    const toQuery = (targets.length ? targets : boards).slice(0, 40);
+
+    const results = await Promise.allSettled(
+      toQuery.map(async (token) => {
+        const res = await fetchWithTimeout(
+          `https://api.lever.co/v0/postings/${token}?mode=json`,
+        );
+        if (!res.ok) return [] as RawJob[];
+        const data = (await res.json()) as Array<{
+          id: string;
+          text: string;
+          hostedUrl: string;
+          descriptionPlain?: string;
+          categories?: { location?: string; team?: string; commitment?: string };
+          createdAt?: number;
+        }>;
+        return (data ?? []).map((j) => {
+          const companyName = token;
+          return {
+            title: j.text,
+            companyName,
+            description: (j.descriptionPlain ?? "").slice(0, 4000),
+            sourceName: "lever",
+            sourceUrl: j.hostedUrl,
+            location: j.categories?.location ?? null,
+            compensation: null,
+            postedDate: j.createdAt ? new Date(j.createdAt).toISOString() : null,
+            dedupeHash: hashJob(j.text, companyName, j.hostedUrl),
+          } as RawJob;
+        });
+      }),
+    );
+
+    const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    return all
+      .filter((j) => matchesLoosely(role, `${j.title} ${j.description}`))
+      .slice(0, (query.limit ?? 40) * 2);
+  },
+};
+
 const registry: JobSource[] = [
   remotiveSource,
   adzunaSource,
   arbeitnowSource,
   theMuseSource,
   usaJobsSource,
+  greenhouseSource,
+  leverSource,
 ];
 
 export function enabledSources(): JobSource[] {
@@ -367,31 +503,40 @@ export interface SearchOutcome {
   logs: Array<{ source: string; count: number; status: string; error?: string }>;
 }
 
-/** Query all enabled sources; degrade gracefully; de-duplicate by hash. */
+/** Query all enabled sources in parallel; degrade gracefully; de-dup by hash. */
 export async function searchAllSources(query: JobQuery): Promise<SearchOutcome> {
   const logs: SearchOutcome["logs"] = [];
   const seen = new Set<string>();
   const jobs: RawJob[] = [];
 
-  for (const source of enabledSources()) {
-    try {
-      const results = await source.search(query);
-      let added = 0;
-      for (const j of results) {
-        if (seen.has(j.dedupeHash)) continue;
-        seen.add(j.dedupeHash);
-        jobs.push(j);
-        added++;
+  const perSource = await Promise.all(
+    enabledSources().map(async (source) => {
+      try {
+        const results = await source.search(query);
+        return { source: source.name, results, error: undefined as string | undefined };
+      } catch (err) {
+        return {
+          source: source.name,
+          results: [] as RawJob[],
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
-      logs.push({ source: source.name, count: added, status: "ok" });
-    } catch (err) {
-      logs.push({
-        source: source.name,
-        count: 0,
-        status: "failed",
-        error: err instanceof Error ? err.message : String(err),
-      });
+    }),
+  );
+
+  for (const outcome of perSource) {
+    if (outcome.error) {
+      logs.push({ source: outcome.source, count: 0, status: "failed", error: outcome.error });
+      continue;
     }
+    let added = 0;
+    for (const j of outcome.results) {
+      if (!j.sourceUrl || seen.has(j.dedupeHash)) continue;
+      seen.add(j.dedupeHash);
+      jobs.push(j);
+      added++;
+    }
+    logs.push({ source: outcome.source, count: added, status: "ok" });
   }
 
   return { jobs, logs };
