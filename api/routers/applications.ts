@@ -6,8 +6,9 @@ import { applications, resumeProfiles, jobs } from "../db/schema";
 import { getActiveProfile } from "./profiles";
 import { ApplicationStatus } from "../../shared/constants";
 import { chatCompletion } from "../services/ai";
-import { tailorResumeMessages, coverLetterMessages } from "../services/prompts";
-import { requireFeature, effectivePlan } from "../lib/entitlements";
+import { tailorResumeMessages, coverLetterMessages, docEditMessages } from "../services/prompts";
+import { requireFeature, requireAIEntitlement, effectivePlan } from "../lib/entitlements";
+import { analyzeAts } from "../services/ats";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { TRPCError } from "@trpc/server";
 
@@ -30,6 +31,7 @@ export const applicationsRouter = router({
         companyName: z.string().max(255).optional(),
         jobTitle: z.string().max(300).optional(),
         jobUrl: z.string().max(2000).optional(),
+        jobDescription: z.string().max(20000).optional(),
         status: statusEnum.default(ApplicationStatus.APPLIED),
         linkedVersionId: z.number().optional(),
       }),
@@ -45,9 +47,77 @@ export const applicationsRouter = router({
           companyName: input.companyName,
           jobTitle: input.jobTitle,
           jobUrl: input.jobUrl,
+          jobDescription: input.jobDescription,
           status: input.status,
           linkedVersionId: input.linkedVersionId,
         })
+        .returning();
+      return rows[0];
+    }),
+
+  // Add a job to Applications in one click, then prepare tailored documents.
+  // If the user has no resume, it still logs the application (docs come later).
+  addAndPrepare: authedProcedure
+    .input(
+      z.object({
+        jobId: z.number().optional(),
+        companyName: z.string().max(255).optional(),
+        jobTitle: z.string().max(300),
+        jobUrl: z.string().max(2000).optional(),
+        jobDescription: z.string().max(20000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const profile = await getActiveProfile(ctx.user.id);
+      const resume = (
+        await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+
+      // Reuse an existing application for this job if there is one.
+      const existing = input.jobId
+        ? (await db
+            .select({ id: applications.id })
+            .from(applications)
+            .where(and(eq(applications.userId, ctx.user.id), eq(applications.jobId, input.jobId)))
+            .limit(1)).at(0)
+        : undefined;
+
+      // Draft documents only when we have both a resume and a job description.
+      let draftResume: string | null = null;
+      let draftCoverLetter: string | null = null;
+      let atsScore: number | null = null;
+      const jd = input.jobDescription?.trim() ?? "";
+      if (resume?.baseResumeText && jd.length >= 40) {
+        await requireFeature(ctx.user, "semiApply", "Assisted apply");
+        const voice = resume.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
+        const [resumeRes, coverRes] = await Promise.all([
+          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd }), { maxTokens: 3000 }),
+          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd, companyName: input.companyName ?? "the company", jobTitle: input.jobTitle }), { maxTokens: 2000 }),
+        ]);
+        draftResume = resumeRes.success ? resumeRes.content : null;
+        draftCoverLetter = coverRes.success ? coverRes.content : null;
+        atsScore = analyzeAts(draftResume || resume.baseResumeText, jd, input.companyName).baseScore;
+      }
+
+      const values = {
+        companyName: input.companyName,
+        jobTitle: input.jobTitle,
+        jobUrl: input.jobUrl,
+        jobDescription: jd || null,
+        draftResume,
+        draftCoverLetter,
+        atsScore,
+        status: ApplicationStatus.DRAFT,
+      };
+
+      if (existing) {
+        const rows = await db.update(applications).set(values).where(eq(applications.id, existing.id)).returning();
+        return rows[0];
+      }
+      const rows = await db
+        .insert(applications)
+        .values({ userId: ctx.user.id, profileId: profile?.id, jobId: input.jobId, ...values })
         .returning();
       return rows[0];
     }),
@@ -98,8 +168,10 @@ export const applicationsRouter = router({
             companyName: input.companyName,
             jobTitle: input.jobTitle,
             jobUrl: input.jobUrl,
+            jobDescription: input.jobDescription,
             draftResume: resumeRes.success ? resumeRes.content : null,
             draftCoverLetter: coverRes.success ? coverRes.content : null,
+            atsScore: analyzeAts(resumeRes.success && resumeRes.content ? resumeRes.content : resume.baseResumeText, input.jobDescription, input.companyName).baseScore,
           })
           .where(eq(applications.id, existing.id))
           .returning();
@@ -115,9 +187,11 @@ export const applicationsRouter = router({
           companyName: input.companyName,
           jobTitle: input.jobTitle,
           jobUrl: input.jobUrl,
+          jobDescription: input.jobDescription,
           status: ApplicationStatus.DRAFT,
           draftResume: resumeRes.success ? resumeRes.content : null,
           draftCoverLetter: coverRes.success ? coverRes.content : null,
+          atsScore: analyzeAts(resumeRes.success && resumeRes.content ? resumeRes.content : resume.baseResumeText, input.jobDescription, input.companyName).baseScore,
         })
         .returning();
       return rows[0];
@@ -176,9 +250,11 @@ export const applicationsRouter = router({
           companyName,
           jobTitle,
           jobUrl: input.url,
+          jobDescription: jobText,
           status: ApplicationStatus.DRAFT,
           draftResume: resumeRes.success ? resumeRes.content : null,
           draftCoverLetter: coverRes.success ? coverRes.content : null,
+          atsScore: analyzeAts(resumeRes.success && resumeRes.content ? resumeRes.content : resume.baseResumeText, jobText, companyName).baseScore,
         })
         .returning();
       return { application: rows[0], usedUrl: !input.description && !!input.url };
@@ -290,6 +366,115 @@ export const applicationsRouter = router({
       if (!rows[0])
         throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
       return rows[0];
+    }),
+
+  // Analyze an application's current draft resume against its job description.
+  // Deterministic and instant; returns a transparent ATS breakdown and stores
+  // the score so the list shows an up to date read.
+  analyze: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const app = (
+        await db
+          .select()
+          .from(applications)
+          .where(and(eq(applications.id, input.id), eq(applications.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const resume = (
+        await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+      const resumeText = app.draftResume?.trim() || resume?.baseResumeText?.trim() || "";
+      const jd = app.jobDescription?.trim() || "";
+      if (!resumeText || jd.length < 40) {
+        return {
+          ok: false as const,
+          reason: !resumeText
+            ? "Add resume text to this application before analyzing."
+            : "This application has no job description to analyze against.",
+        };
+      }
+
+      const det = analyzeAts(resumeText, jd, app.companyName ?? undefined);
+      await db
+        .update(applications)
+        .set({ atsScore: det.baseScore })
+        .where(eq(applications.id, app.id));
+
+      return {
+        ok: true as const,
+        score: det.baseScore,
+        matched: det.keyword.matched,
+        missing: det.keyword.missing,
+        coverage: det.keyword.coverage,
+        formatScore: det.format.score,
+        formatIssues: det.format.issues,
+        seniority: det.seniority,
+      };
+    }),
+
+  // Continuous document-editing assistant. Answers questions and, when asked to
+  // change the document, returns a full revised version fenced with markers the
+  // client extracts. Objective and honest; keeps the candidate's real facts.
+  editChat: authedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        docType: z.enum(["resume", "cover"]),
+        currentDoc: z.string().max(40000),
+        message: z.string().min(1).max(4000),
+        history: z
+          .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(6000) }))
+          .max(20)
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const db = getDb();
+      const app = (
+        await db
+          .select()
+          .from(applications)
+          .where(and(eq(applications.id, input.id), eq(applications.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const resume = (
+        await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)
+      ).at(0);
+      const jd = app.jobDescription?.trim() || "";
+      const det = jd.length >= 40 && input.currentDoc
+        ? analyzeAts(input.currentDoc, jd, app.companyName ?? undefined)
+        : null;
+
+      const res = await chatCompletion(
+        docEditMessages({
+          docType: input.docType,
+          currentDoc: input.currentDoc,
+          jobDescription: jd || "(no job description on file)",
+          companyName: app.companyName ?? undefined,
+          jobTitle: app.jobTitle ?? undefined,
+          voiceProfile: resume?.voiceProfile ?? undefined,
+          matchedKeywords: det?.keyword.matched.slice(0, 12),
+          missingKeywords: det?.keyword.missing.slice(0, 12),
+          history: (input.history ?? []) as { role: "user" | "assistant"; content: string }[],
+          userMessage: input.message,
+        }),
+        { maxTokens: 3200 },
+      );
+      if (!res.success || !res.content) return { success: false as const, reply: null, revisedDoc: null, error: res.error };
+
+      // Extract a revised document if the model returned one.
+      const match = res.content.match(/<<<DOC>>>([\s\S]*?)<<<END>>>/);
+      const revisedDoc = match ? match[1].trim() : null;
+      const reply = res.content.replace(/<<<DOC>>>[\s\S]*?<<<END>>>/, "").trim();
+
+      return { success: true as const, reply, revisedDoc, error: null };
     }),
 
   list: authedProcedure.query(async ({ ctx }) => {

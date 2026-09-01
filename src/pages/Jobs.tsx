@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X, BarChart3, TrendingUp, Gem } from "lucide-react";
+import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X, BarChart3, TrendingUp, Gem, Plus, SlidersHorizontal } from "lucide-react";
 import { INDUSTRIES } from "../../shared/constants";
 import { startWorkingSession } from "@/lib/workingSession";
 
@@ -48,7 +48,6 @@ export default function Jobs() {
   const removeJob = trpc.jobs.remove.useMutation();
   const clear = trpc.jobs.clear.useMutation();
   const logApp = trpc.applications.create.useMutation();
-  const prepare = trpc.applications.prepare.useMutation();
   const autoApply = trpc.applications.autoApply.useMutation();
   const access = trpc.auth.myAccess.useQuery();
   const canAutoApply = !!(access.data?.plan as any)?.autoApply;
@@ -59,12 +58,18 @@ export default function Jobs() {
     industryId: industryId || undefined,
   });
   const prepareFromPaste = trpc.applications.prepareFromPaste.useMutation();
+  const addAndPrepare = trpc.applications.addAndPrepare.useMutation();
   const quickScan = trpc.jobs.quickScan.useMutation();
   const [insightsCompany, setInsightsCompany] = useState<string | null>(null);
   const insights = trpc.jobs.companyInsights.useQuery(
     { company: insightsCompany ?? "" },
     { enabled: !!insightsCompany },
   );
+  // Collapsible helper sections keep the page tidy; closed by default.
+  const [moreFilters, setMoreFilters] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [companiesOpen, setCompaniesOpen] = useState(false);
+  const [addingId, setAddingId] = useState<number | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteUrl, setPasteUrl] = useState("");
   const [pasteDesc, setPasteDesc] = useState("");
@@ -192,21 +197,25 @@ export default function Jobs() {
     }
   };
 
-  const prepareApplication = async (j: any) => {
-    if (!j.description) return toast.error("This job has no description to tailor from");
-    const t = toast.loading("Drafting tailored resume & cover letter…");
+  // One click: add the job to Applications and prepare tailored documents.
+  const addToApplications = async (j: any) => {
+    setAddingId(j.id);
+    const t = toast.loading("Adding to Applications and drafting documents…");
     try {
-      await prepare.mutateAsync({
+      await addAndPrepare.mutateAsync({
         jobId: j.id,
         companyName: j.title,
         jobTitle: j.title,
         jobUrl: j.sourceUrl ?? undefined,
-        jobDescription: j.description,
+        jobDescription: j.description ?? undefined,
       });
       await utils.applications.list.invalidate();
-      toast.success("Draft ready. Review it on the Applications page.", { id: t });
+      await utils.jobs.list.invalidate();
+      toast.success("Added to Applications. Open it to scan, edit, and refine.", { id: t });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed", { id: t });
+    } finally {
+      setAddingId(null);
     }
   };
 
@@ -315,9 +324,6 @@ export default function Jobs() {
             <button onClick={refresh} disabled={search.isPending || clear.isPending} className="btn-ghost h-10" title="Clear and fetch the latest">
               {clear.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
             </button>
-            <button onClick={() => runSearch()} disabled={search.isPending} className="btn-primary h-10">
-              {search.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching…</> : <><Search className="w-4 h-4" /> Search</>}
-            </button>
           </div>
         )}
       </div>
@@ -336,108 +342,116 @@ export default function Jobs() {
         </div>
       ) : (
         <>
-          {/* Filter bar */}
+          {/* Search bar: the three fields people use most, plus more filters. */}
           <div className="card p-4 mb-4 space-y-3">
             <div className="grid sm:grid-cols-3 gap-2">
               <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="Keywords / role" className="input" />
               <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (remote, Ohio…)" className="input" />
               <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company" className="input" />
             </div>
-            <div className="flex items-center gap-4 flex-wrap text-sm text-slate-600">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={qualityFilter} onChange={(e) => setQualityFilter(e.target.checked)} /> Prioritize pay &amp; culture</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={withComp} onChange={(e) => setWithComp(e.target.checked)} /> Only with compensation</label>
-              <div className="flex items-center gap-2">
-                <span>Sort</span>
-                <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
-                  <option value="recent">Most recent</option>
-                  <option value="relevance">Best match</option>
-                  <option value="quality">Highest quality</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>Min match</span>
-                <input type="range" min={0} max={90} step={5} value={minRelevance} onChange={(e) => setMinRelevance(Number(e.target.value))} />
-                <span className="chip bg-slate-100 text-slate-600 w-10 justify-center">{minRelevance}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>Posted</span>
-                <select value={maxDaysOld} onChange={(e) => setMaxDaysOld(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
-                  <option value={0}>Any time</option>
-                  <option value={1}>Last 24 hours</option>
-                  <option value={3}>Last 3 days</option>
-                  <option value={7}>Last week</option>
-                  <option value={30}>Last month</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>Min salary</span>
-                <select value={minSalary} onChange={(e) => setMinSalary(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
-                  <option value={0}>Any</option>
-                  <option value={50000}>$50k+</option>
-                  <option value={75000}>$75k+</option>
-                  <option value={100000}>$100k+</option>
-                  <option value={150000}>$150k+</option>
-                  <option value={200000}>$200k+</option>
-                </select>
-                {minSalary > 0 && <span className="text-[10px] text-slate-400 normal-case">keeps unlisted-salary jobs</span>}
-              </div>
-              <div className="flex items-center gap-2">
-                <span>Type</span>
-                <select value={contractType} onChange={(e) => setContractType(e.target.value as never)} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
-                  <option value="">Any</option>
-                  <option value="full_time">Full-time</option>
-                  <option value="part_time">Part-time</option>
-                  <option value="contract">Contract</option>
-                  <option value="permanent">Permanent</option>
-                </select>
-              </div>
+            <div className="flex items-center justify-between">
+              <button onClick={() => setMoreFilters((v) => !v)} className="text-xs font-semibold text-slate-500 inline-flex items-center gap-1 hover:text-brand">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> {moreFilters ? "Fewer filters" : "More filters"}
+              </button>
+              <button onClick={() => runSearch()} disabled={search.isPending} className="btn-primary h-9">
+                {search.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching…</> : <><Search className="w-4 h-4" /> Search</>}
+              </button>
             </div>
-          </div>
-
-          {/* Search LinkedIn (deep-link) + import your LinkedIn profile */}
-          <div className="card p-4 mb-4 flex items-center gap-3 flex-wrap">
-            <Linkedin className="w-4 h-4 text-[#0a66c2] shrink-0" />
-            <div className="text-sm text-slate-600 flex-1 min-w-[180px]">
-              Search LinkedIn jobs tuned to your profile, then paste any you like below to scan and curate.
-            </div>
-            <button
-              onClick={() => {
-                const p = profiles.data?.find((x) => x.isActive);
-                const kw = keywords || p?.targetRole || "";
-                const loc = location || "";
-                const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}${loc ? `&location=${encodeURIComponent(loc)}` : ""}`;
-                window.open(url, "_blank", "noopener");
-              }}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#0a66c2] text-white text-xs font-semibold hover:brightness-110"
-            >
-              <Search className="w-3.5 h-3.5" /> Search LinkedIn
-            </button>
-            <Link to="/resume" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200" title="Import your LinkedIn export on the Resume page">
-              Import my LinkedIn
-            </Link>
-          </div>
-
-          {/* Paste a job found elsewhere — scan first, then curate */}
-          <div className="card p-4 mb-4">
-            <button onClick={() => setPasteOpen((v) => !v)} className="flex items-center gap-2 w-full text-left">
-              <ClipboardPaste className="w-4 h-4 text-brand" />
-              <h3 className="font-bold text-sm text-slate-800">Found a job elsewhere?</h3>
-              <span className="text-xs text-slate-400">Paste a link or description. We scan the match first, then curate.</span>
-              <span className="ml-auto text-slate-300 text-lg leading-none">{pasteOpen ? "−" : "+"}</span>
-            </button>
-            {pasteOpen && (
-              <div className="mt-3 space-y-2">
-                <input value={pasteUrl} onChange={(e) => setPasteUrl(e.target.value)} placeholder="Job link (optional)" className="input" />
-                <div className="grid sm:grid-cols-2 gap-2">
-                  <input value={pasteCompany} onChange={(e) => setPasteCompany(e.target.value)} placeholder="Company (optional)" className="input" />
-                  <input value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} placeholder="Role title (optional)" className="input" />
-                </div>
-                <textarea value={pasteDesc} onChange={(e) => setPasteDesc(e.target.value)} className="textarea min-h-[120px]" placeholder="Paste the job description here. If a link is blocked, this is the reliable way." />
+            {moreFilters && (
+              <div className="flex items-center gap-4 flex-wrap text-sm text-slate-600 border-t border-[var(--border)] pt-3">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={qualityFilter} onChange={(e) => setQualityFilter(e.target.checked)} /> Prioritize pay &amp; culture</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={withComp} onChange={(e) => setWithComp(e.target.checked)} /> Only with compensation</label>
                 <div className="flex items-center gap-2">
-                  <button onClick={scanPaste} disabled={scanningId === "paste"} className="btn-primary">
-                    {scanningId === "paste" ? <><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</> : <><ScanSearch className="w-4 h-4" /> Quick scan</>}
+                  <span>Sort</span>
+                  <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                    <option value="recent">Most recent</option>
+                    <option value="relevance">Best match</option>
+                    <option value="quality">Highest quality</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>Min match</span>
+                  <input type="range" min={0} max={90} step={5} value={minRelevance} onChange={(e) => setMinRelevance(Number(e.target.value))} />
+                  <span className="chip bg-slate-100 text-slate-600 w-10 justify-center">{minRelevance}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>Posted</span>
+                  <select value={maxDaysOld} onChange={(e) => setMaxDaysOld(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                    <option value={0}>Any time</option>
+                    <option value={1}>Last 24 hours</option>
+                    <option value={3}>Last 3 days</option>
+                    <option value={7}>Last week</option>
+                    <option value={30}>Last month</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>Min salary</span>
+                  <select value={minSalary} onChange={(e) => setMinSalary(Number(e.target.value))} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                    <option value={0}>Any</option>
+                    <option value={50000}>$50k+</option>
+                    <option value={75000}>$75k+</option>
+                    <option value={100000}>$100k+</option>
+                    <option value={150000}>$150k+</option>
+                    <option value={200000}>$200k+</option>
+                  </select>
+                  {minSalary > 0 && <span className="text-[10px] text-slate-400 normal-case">keeps unlisted-salary jobs</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>Type</span>
+                  <select value={contractType} onChange={(e) => setContractType(e.target.value as never)} className="h-8 px-2 rounded-lg border border-[var(--border)] text-xs">
+                    <option value="">Any</option>
+                    <option value="full_time">Full-time</option>
+                    <option value="part_time">Part-time</option>
+                    <option value="contract">Contract</option>
+                    <option value="permanent">Permanent</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add a job / tools: paste a job found elsewhere, or jump to LinkedIn. */}
+          <div className="card p-4 mb-4">
+            <button onClick={() => setToolsOpen((v) => !v)} className="flex items-center gap-2 w-full text-left">
+              <ClipboardPaste className="w-4 h-4 text-brand" />
+              <h3 className="font-bold text-sm text-slate-800">Add a job or search elsewhere</h3>
+              <span className="text-xs text-slate-400 hidden sm:inline">Paste a link or description, or open LinkedIn.</span>
+              <span className="ml-auto text-slate-300 text-lg leading-none">{toolsOpen ? "−" : "+"}</span>
+            </button>
+            {toolsOpen && (
+              <div className="mt-3 space-y-3">
+                <div className="space-y-2">
+                  <input value={pasteUrl} onChange={(e) => setPasteUrl(e.target.value)} placeholder="Job link (optional)" className="input" />
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <input value={pasteCompany} onChange={(e) => setPasteCompany(e.target.value)} placeholder="Company (optional)" className="input" />
+                    <input value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} placeholder="Role title (optional)" className="input" />
+                  </div>
+                  <textarea value={pasteDesc} onChange={(e) => setPasteDesc(e.target.value)} className="textarea min-h-[110px]" placeholder="Paste the job description here. If a link is blocked, this is the reliable way." />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={scanPaste} disabled={scanningId === "paste"} className="btn-primary">
+                      {scanningId === "paste" ? <><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</> : <><ScanSearch className="w-4 h-4" /> Quick scan</>}
+                    </button>
+                    <Link to="/applications" className="text-xs text-brand font-semibold hover:underline">View my applications</Link>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap border-t border-[var(--border)] pt-3">
+                  <Linkedin className="w-4 h-4 text-[#0a66c2] shrink-0" />
+                  <span className="text-xs text-slate-500 flex-1 min-w-[140px]">Open LinkedIn jobs tuned to your profile, then paste any you like above.</span>
+                  <button
+                    onClick={() => {
+                      const p = profiles.data?.find((x) => x.isActive);
+                      const kw = keywords || p?.targetRole || "";
+                      const loc = location || "";
+                      const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}${loc ? `&location=${encodeURIComponent(loc)}` : ""}`;
+                      window.open(url, "_blank", "noopener");
+                    }}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#0a66c2] text-white text-xs font-semibold hover:brightness-110"
+                  >
+                    <Search className="w-3.5 h-3.5" /> Search LinkedIn
                   </button>
-                  <Link to="/applications" className="text-xs text-brand font-semibold hover:underline">View drafts</Link>
+                  <Link to="/resume" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200">
+                    Import my LinkedIn
+                  </Link>
                 </div>
               </div>
             )}
@@ -628,16 +642,19 @@ export default function Jobs() {
             </div>
           )}
 
-          {/* Suggested companies */}
+          {/* Suggested companies (collapsible to keep the page tidy) */}
           {(suggestions.data?.length ?? 0) > 0 && (
             <div className="card p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <button onClick={() => setCompaniesOpen((v) => !v)} className="flex items-center gap-2 w-full text-left mb-2 flex-wrap">
                 <Building2 className="w-4 h-4 text-brand" />
                 <h3 className="font-bold text-sm text-slate-800">Companies for you</h3>
                 <span className="text-xs text-slate-400">
                   {industryId ? `in ${INDUSTRIES.find((i) => i.id === industryId)?.label}` : `based on your profile${keywords ? " & keywords" : ""}`}
                 </span>
-              </div>
+                <span className="ml-auto text-slate-300 text-lg leading-none">{companiesOpen ? "−" : "+"}</span>
+              </button>
+              {companiesOpen && (
+              <>
               {/* Industry filter */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button
@@ -678,6 +695,8 @@ export default function Jobs() {
               <p className="text-[11px] text-slate-400 mt-2">
                 Highlighted companies open hiring insights (departments, in-demand and niche roles) with a search action. Plain ones open the employer's own careers page.
               </p>
+              </>
+              )}
             </div>
           )}
 
@@ -732,13 +751,15 @@ export default function Jobs() {
                           <span className="chip bg-slate-100 text-slate-400 normal-case">Salary not listed</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-2 flex-wrap">
-                        {j.sourceUrl && <a href={j.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
-                        <button onClick={() => scanJob(j)} disabled={scanningId === j.id} className="text-xs text-brand font-semibold inline-flex items-center gap-1 hover:underline">{scanningId === j.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanSearch className="w-3 h-3" />} Quick scan</button>
-                        <button onClick={() => prepareApplication(j)} disabled={prepare.isPending} className="text-xs text-brand font-semibold inline-flex items-center gap-1 hover:underline"><Sparkles className="w-3 h-3" /> Prepare application</button>
-                        {j.status !== "saved" && <button onClick={() => mark(j.id, "saved")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Star className="w-3 h-3" /> Save</button>}
-                        {j.status !== "applied" && <button onClick={() => mark(j.id, "applied")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand"><Send className="w-3 h-3" /> Mark applied</button>}
-                        <button onClick={() => notInterested(j.id)} className="text-xs text-slate-400 font-semibold inline-flex items-center gap-1 hover:text-rose-500"><ThumbsDown className="w-3 h-3" /> Not interested</button>
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {/* Primary one-click action: add to Applications + draft docs. */}
+                        <button onClick={() => addToApplications(j)} disabled={addingId === j.id} className="btn-primary h-8 px-3 text-xs">
+                          {addingId === j.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Adding…</> : <><Plus className="w-3.5 h-3.5" /> Add to Applications</>}
+                        </button>
+                        <button onClick={() => scanJob(j)} disabled={scanningId === j.id} className="btn-ghost h-8 px-3 text-xs">{scanningId === j.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanSearch className="w-3.5 h-3.5" />} Scan</button>
+                        {j.sourceUrl && <a href={j.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1 ml-1">View <ExternalLink className="w-3 h-3" /></a>}
+                        {j.status !== "saved" && <button onClick={() => mark(j.id, "saved")} className="text-xs text-slate-500 font-semibold inline-flex items-center gap-1 hover:text-brand ml-1"><Star className="w-3 h-3" /> Save</button>}
+                        <button onClick={() => notInterested(j.id)} className="text-xs text-slate-400 font-semibold inline-flex items-center gap-1 hover:text-rose-500 ml-auto"><ThumbsDown className="w-3 h-3" /> Not interested</button>
                       </div>
                     </div>
                   </div>

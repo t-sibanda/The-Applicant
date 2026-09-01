@@ -183,6 +183,10 @@ export const applications = pgTable(
     // Review-mode assisted apply: drafted materials the user reviews/edits.
     draftResume: text("draft_resume"),
     draftCoverLetter: text("draft_cover_letter"),
+    // The job description text, kept so the workspace can scan and analyze
+    // without re-pasting, plus the latest ATS fit score for a quick read.
+    jobDescription: text("job_description"),
+    atsScore: integer("ats_score"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => ({

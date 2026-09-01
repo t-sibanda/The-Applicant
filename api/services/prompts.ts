@@ -314,3 +314,61 @@ Return ONLY valid JSON.`,
     },
   ];
 }
+
+/**
+ * Continuous document-editing assistant. It analyzes the current document
+ * against the job, answers the user's questions, and, when the user asks for a
+ * change, returns a full revised document. The revised document is fenced so
+ * the client can extract and apply it.
+ */
+export function docEditMessages(args: {
+  docType: "resume" | "cover";
+  currentDoc: string;
+  jobDescription: string;
+  companyName?: string;
+  jobTitle?: string;
+  voiceProfile?: string;
+  matchedKeywords?: string[];
+  missingKeywords?: string[];
+  history: ChatMessage[];
+  userMessage: string;
+}): ChatMessage[] {
+  const label = args.docType === "resume" ? "resume" : "cover letter";
+  const kw = [
+    args.matchedKeywords?.length ? `Already covered: ${args.matchedKeywords.join(", ")}` : "",
+    args.missingKeywords?.length ? `Worth adding: ${args.missingKeywords.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const system: ChatMessage = {
+    role: "system",
+    content: `You are an objective ${label} editor helping a candidate improve their ATS fit for a specific job.
+
+Rules:
+- Be concrete and honest. Point out real gaps and weak phrasing. No flattery, no invented facts or metrics.
+- When you suggest edits, explain briefly WHY (keyword coverage, clarity, impact, formatting for ATS).
+- Only revise the document when the user asks for changes or accepts a suggestion.
+- When you DO revise, output the FULL updated ${label} inside a single fenced block exactly like:
+<<<DOC>>>
+(the complete revised ${label} text here)
+<<<END>>>
+Put your short explanation BEFORE the block. Never put anything after the block.
+- If the user is only asking a question, answer plainly and do NOT include a <<<DOC>>> block.
+- Keep the candidate's real experience. Do not fabricate employers, titles, dates, or numbers.
+- Write in the candidate's voice.${args.voiceProfile ? ` Voice profile: ${args.voiceProfile}` : ""}
+- No em dashes.
+
+Job title: ${args.jobTitle ?? "the role"}
+Company: ${args.companyName ?? "the company"}
+${kw ? `\nKeyword signals:\n${kw}` : ""}
+
+Job description:
+${args.jobDescription}
+
+Current ${label}:
+${args.currentDoc || "(empty)"}`,
+  };
+
+  return [system, ...args.history, { role: "user", content: args.userMessage }];
+}
