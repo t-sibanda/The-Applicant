@@ -61,12 +61,21 @@ const personaSchema = z.object({
   narrative: z.string(),
 });
 
-// Personality result stored from the gamified quizzes. Free-form-ish so we can
-// add frameworks without a migration; validated loosely.
+// Personality result stored from the gamified quizzes. Loosely validated so we
+// can add or evolve frameworks without a migration. Covers the four workplace
+// assessments (DISC, Talents, Social Style, Reputation) plus Johari.
 const personalitySchema = z.object({
   disc: z.object({ D: z.number(), I: z.number(), S: z.number(), C: z.number(), primary: z.string() }).optional(),
-  bigFive: z.object({ O: z.number(), C: z.number(), E: z.number(), A: z.number(), N: z.number() }).optional(),
-  values: z.object({ scores: z.record(z.string(), z.number()), top: z.array(z.string()) }).optional(),
+  talents: z.object({
+    scores: z.array(z.object({ talent: z.string(), pct: z.number() })),
+    top: z.array(z.string()),
+  }).optional(),
+  social: z.object({ assert: z.number(), respond: z.number(), style: z.string() }).optional(),
+  reputation: z.object({
+    bright: z.array(z.object({ tag: z.string(), pct: z.number() })),
+    dark: z.array(z.object({ tag: z.string(), pct: z.number() })),
+    values: z.array(z.object({ tag: z.string(), pct: z.number() })),
+  }).optional(),
   johari: z.object({ open: z.array(z.string()), hidden: z.array(z.string()), blind: z.array(z.string()) }).optional(),
   summary: z.string().optional(),
 });

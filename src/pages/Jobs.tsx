@@ -9,7 +9,9 @@ type SortKey = "recent" | "relevance" | "quality";
 
 type ScanResult = {
   match: number;
-  suggestion: "strong" | "worth_a_look" | "weak";
+  // The verdict from the backend; kept as a plain string on the client since
+  // the panel only displays suggestionText and never switches on this value.
+  suggestion: string;
   suggestionText: string;
   matchedKeywords: string[];
   missingKeywords: string[];
