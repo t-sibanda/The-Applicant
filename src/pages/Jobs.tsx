@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Briefcase, UserPlus, ExternalLink, Search, Send, Loader2, Star, RefreshCw, Trash2, DollarSign, ThumbsDown, Sparkles, Building2, ClipboardPaste, Wand2, ScanSearch, Bot, Linkedin, X, BarChart3, TrendingUp, Gem } from "lucide-react";
 import { INDUSTRIES } from "../../shared/constants";
+import { startWorkingSession } from "@/lib/workingSession";
 
 type SortKey = "recent" | "relevance" | "quality";
 
@@ -75,6 +76,35 @@ export default function Jobs() {
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [scanningId, setScanningId] = useState<number | "paste" | null>(null);
 
+  // Match chat: ask follow-up questions about fit for the scanned job.
+  const matchChat = trpc.jobs.matchChat.useMutation();
+  const [chatLog, setChatLog] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+
+  const askMatch = async () => {
+    if (!scan) return;
+    const q = chatInput.trim();
+    if (!q) return;
+    setChatInput("");
+    const history = chatLog.slice(-12);
+    setChatLog((l) => [...l, { role: "user", content: q }]);
+    try {
+      const res = await matchChat.mutateAsync({
+        jobText: scan.jobText,
+        jobTitle: scan.title,
+        question: q,
+        history,
+      });
+      if (res.success && res.content) {
+        setChatLog((l) => [...l, { role: "assistant", content: res.content! }]);
+      } else {
+        toast.error(res.error ?? "The assistant could not answer that.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
   // Scan a pasted link/description first, THEN offer to curate.
   const scanPaste = async () => {
     if (!pasteUrl.trim() && pasteDesc.trim().length < 40) {
@@ -88,7 +118,17 @@ export default function Jobs() {
         title: pasteTitle.trim() || undefined,
       });
       if (!res.ok) return toast.error(res.reason);
-      setScan({ ...res, company: pasteCompany.trim() || undefined, title: pasteTitle.trim() || undefined, url: pasteUrl.trim() || undefined });
+      const scanResult = { ...res, company: pasteCompany.trim() || undefined, title: pasteTitle.trim() || undefined, url: pasteUrl.trim() || undefined };
+      setScan(scanResult);
+      setChatLog([]);
+      // Carry this job across pages so the Optimizer and Applications reuse it.
+      startWorkingSession({
+        jobUrl: scanResult.url,
+        jobDescription: res.jobText,
+        companyName: scanResult.company,
+        jobTitle: scanResult.title,
+        scan: { match: res.match, suggestionText: res.suggestionText, matchedKeywords: res.matchedKeywords, missingKeywords: res.missingKeywords },
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Scan failed");
     } finally {
@@ -103,7 +143,16 @@ export default function Jobs() {
     try {
       const res = await quickScan.mutateAsync({ description: j.description, title: j.title });
       if (!res.ok) return toast.error(res.reason);
-      setScan({ ...res, company: j.title, title: j.title, url: j.sourceUrl ?? undefined });
+      const scanResult = { ...res, company: j.title, title: j.title, url: j.sourceUrl ?? undefined };
+      setScan(scanResult);
+      setChatLog([]);
+      startWorkingSession({
+        jobUrl: scanResult.url,
+        jobDescription: res.jobText,
+        companyName: scanResult.company,
+        jobTitle: scanResult.title,
+        scan: { match: res.match, suggestionText: res.suggestionText, matchedKeywords: res.matchedKeywords, missingKeywords: res.missingKeywords },
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Scan failed");
     } finally {
@@ -437,6 +486,35 @@ export default function Jobs() {
                 </button>
                 <Link to="/optimizer" className="btn-ghost"><Bot className="w-4 h-4" /> Open in AI Optimizer</Link>
                 {scan.url && <a href={scan.url} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
+              </div>
+
+              {/* Match chat: ask about your fit for this job */}
+              <div className="mt-4 border-t border-[var(--border)] pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bot className="w-4 h-4 text-brand" />
+                  <h4 className="font-bold text-xs text-slate-700">Ask about your fit</h4>
+                </div>
+                {chatLog.length > 0 && (
+                  <div className="space-y-2 max-h-[240px] overflow-y-auto mb-2">
+                    {chatLog.map((m, i) => (
+                      <div key={i} className={`text-sm rounded-xl px-3 py-2 ${m.role === "user" ? "bg-brand text-white ml-8" : "bg-white text-slate-700 mr-8 border border-[var(--border)]"}`}>
+                        <div className="whitespace-pre-wrap">{m.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !matchChat.isPending) askMatch(); }}
+                    placeholder="Am I a strong fit? What should I emphasize?"
+                    className="input flex-1"
+                  />
+                  <button onClick={askMatch} disabled={matchChat.isPending || !chatInput.trim()} className="btn-primary h-10">
+                    {matchChat.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
           )}

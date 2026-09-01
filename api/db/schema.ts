@@ -96,6 +96,8 @@ export const resumeVersions = pgTable(
     resumeProfileId: integer("resume_profile_id")
       .notNull()
       .references(() => resumeProfiles.id, { onDelete: "cascade" }),
+    // A user-facing name for a saved resume sample (for example "Product Manager").
+    label: varchar("label", { length: 120 }),
     tailoredResumeText: text("tailored_resume_text"),
     coverLetter: text("cover_letter"),
     jobRef: varchar("job_ref", { length: 255 }),

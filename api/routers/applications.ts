@@ -28,6 +28,8 @@ export const applicationsRouter = router({
       z.object({
         jobId: z.number().optional(),
         companyName: z.string().max(255).optional(),
+        jobTitle: z.string().max(300).optional(),
+        jobUrl: z.string().max(2000).optional(),
         status: statusEnum.default(ApplicationStatus.APPLIED),
         linkedVersionId: z.number().optional(),
       }),
@@ -41,6 +43,8 @@ export const applicationsRouter = router({
           profileId: profile?.id,
           jobId: input.jobId,
           companyName: input.companyName,
+          jobTitle: input.jobTitle,
+          jobUrl: input.jobUrl,
           status: input.status,
           linkedVersionId: input.linkedVersionId,
         })

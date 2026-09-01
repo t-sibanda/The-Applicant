@@ -109,13 +109,15 @@ export const aiRouter = router({
       z.object({
         resumeText: z.string().min(1),
         jobDescription: z.string().min(1),
+        companyName: z.string().max(200).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
 
       // 1) Deterministic analysis (keyword coverage, format, seniority, hard reqs).
-      const det = analyzeAts(input.resumeText, input.jobDescription);
+      // The company name is passed so it is not counted as a required keyword.
+      const det = analyzeAts(input.resumeText, input.jobDescription, input.companyName);
 
       // 2) AI semantic pass: judge how well the experience actually matches
       // beyond literal keywords (0-100), plus prioritized fixes.

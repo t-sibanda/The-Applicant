@@ -2,18 +2,17 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Save, Mic, Loader2, FileText, Sparkles, Eye, Download, X, Linkedin, Wand2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Save, Mic, Loader2, FileText, Eye, Download, X, Linkedin, Wand2, ArrowUpToLine, Trash2 } from "lucide-react";
 
 export default function Resume() {
-  const { user } = useAuth();
-  const isPaid = user?.subscriptionTier === "basic" || user?.subscriptionTier === "pro";
   const utils = trpc.useUtils();
   const profiles = trpc.resume.listProfiles.useQuery();
   const create = trpc.resume.createProfile.useMutation();
   const update = trpc.resume.updateProfile.useMutation();
-  const analyzeVoice = trpc.resume.analyzeAndSaveVoice.useMutation();
   const curate = trpc.resume.curateFromPaste.useMutation();
+  const createVersion = trpc.resume.createVersion.useMutation();
+  const promoteVersion = trpc.resume.promoteVersion.useMutation();
+  const deleteVersion = trpc.resume.deleteVersion.useMutation();
 
   const current = profiles.data?.[0];
   const versions = trpc.resume.listVersions.useQuery(
@@ -25,7 +24,6 @@ export default function Resume() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [text, setText] = useState("");
-  const [voiceSample, setVoiceSample] = useState("");
   const [viewing, setViewing] = useState<{ label: string; content: string } | null>(null);
 
   // Import / curate from pasted info (e.g. your LinkedIn export).
@@ -75,13 +73,42 @@ export default function Resume() {
     }
   };
 
-  const generateVoice = async () => {
-    if (!current) return toast.error("Save your resume first");
-    if (voiceSample.trim().length < 100) return toast.error("Paste a longer writing sample (100+ chars)");
+  const saveAsSample = async () => {
+    if (!current) return toast.error("Save your base resume first");
+    if (text.trim().length < 20) return toast.error("Add resume text before saving a sample");
+    const label = window.prompt("Name this resume sample (for example: Product Manager)");
+    if (label === null) return; // cancelled
     try {
-      const res = await analyzeVoice.mutateAsync({ resumeProfileId: current.id, samples: [voiceSample] });
-      if (res.success) { await utils.resume.listProfiles.invalidate(); toast.success("Voice profile saved. We'll write like you from here on."); }
-      else toast.error(res.error ?? "Failed");
+      await createVersion.mutateAsync({
+        resumeProfileId: current.id,
+        label: label.trim() || undefined,
+        tailoredResumeText: text,
+      });
+      await utils.resume.listProfiles.invalidate();
+      await versions.refetch();
+      toast.success("Saved as a resume sample.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const promote = async (versionId: number) => {
+    if (!window.confirm("Promote this sample to your base resume? Your current base resume text will be replaced. The sample is kept.")) return;
+    try {
+      await promoteVersion.mutateAsync({ versionId });
+      await utils.resume.listProfiles.invalidate();
+      toast.success("Promoted to your base resume.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const removeSample = async (versionId: number) => {
+    if (!window.confirm("Delete this saved sample? This cannot be undone. Your base resume is not affected.")) return;
+    try {
+      await deleteVersion.mutateAsync({ versionId });
+      await versions.refetch();
+      toast.success("Sample deleted.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     }
@@ -111,9 +138,19 @@ export default function Resume() {
           <label className="text-xs font-bold text-slate-500">Base resume text</label>
           <textarea value={text} onChange={(e) => setText(e.target.value)} className="textarea mt-1 min-h-[260px]" placeholder="Paste your full resume here. Experience, skills, education…" />
         </div>
-        <button onClick={save} disabled={create.isPending || update.isPending} className="btn-primary">
-          {(create.isPending || update.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save resume
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={save} disabled={create.isPending || update.isPending} className="btn-primary">
+            {(create.isPending || update.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save resume
+          </button>
+          {current && (
+            <button onClick={saveAsSample} disabled={createVersion.isPending} className="btn-ghost" title="Keep this as a named sample for a role type. It won't be overwritten when you update your base resume.">
+              {createVersion.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Save as sample
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Saving your base resume never deletes your samples. Use "Save as sample" to keep versions for different roles.
+        </p>
       </div>
 
       {/* Import from LinkedIn / paste details */}
@@ -155,57 +192,66 @@ export default function Resume() {
         )}
       </div>
 
-      {/* Voice profile */}
+      {/* Voice profile: managed on the Voice page. Shown here read only so the
+          same writing sample is never captured in two places. */}
       <div className="card p-5 mt-4">
         <div className="flex items-center gap-2 mb-2">
           <Mic className="w-4 h-4 text-brand" />
           <h3 className="font-bold text-sm text-slate-800">Your voice profile</h3>
-          {current?.voiceProfile && <span className="chip bg-emerald-100 text-emerald-700">Active</span>}
+          {current?.voiceProfile
+            ? <span className="chip bg-emerald-100 text-emerald-700">Active</span>
+            : <span className="chip bg-slate-100 text-slate-500">Not set up</span>}
         </div>
         <p className="text-xs text-slate-500 mb-3">
-          Paste a writing sample (a past cover letter, bio, or LinkedIn summary). The AI learns your
-          tone so tailored resumes and letters sound authentically like you.
+          Your voice profile teaches the AI to write tailored resumes and letters that sound like you.
+          It lives on the Voice page so it is set up in one place.
         </p>
-        {isPaid ? (
-          <>
-            <textarea value={voiceSample} onChange={(e) => setVoiceSample(e.target.value)} className="textarea min-h-[100px]" placeholder="Paste a sample of your writing…" />
-            <button onClick={generateVoice} disabled={analyzeVoice.isPending} className="btn-ghost mt-3">
-              {analyzeVoice.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Analyze my voice
-            </button>
-          </>
-        ) : (
-          <Link to="/billing" className="btn-ghost"><Sparkles className="w-4 h-4" /> Upgrade to build a voice profile</Link>
-        )}
+        <Link to="/voice" className="btn-ghost">
+          <Mic className="w-4 h-4" /> {current?.voiceProfile ? "Manage on the Voice page" : "Set up on the Voice page"}
+        </Link>
       </div>
 
-      {/* Saved versions */}
+      {/* Saved resume samples */}
       {(versions.data?.length ?? 0) > 0 && (
         <div className="card p-5 mt-4">
-          <h3 className="font-bold text-sm text-slate-800 mb-3">Saved documents</h3>
+          <h3 className="font-bold text-sm text-slate-800 mb-1">Saved resume samples</h3>
+          <p className="text-xs text-slate-500 mb-3">Keep versions for different roles. Promote one to make it your base resume, or download it any time.</p>
           <div className="space-y-2">
             {versions.data?.map((v) => {
               const content = v.tailoredResumeText || v.coverLetter || "";
-              const label = v.tailoredResumeText ? "Tailored resume" : v.coverLetter ? "Cover letter" : "Document";
+              const kind = v.tailoredResumeText ? "Resume" : v.coverLetter ? "Cover letter" : "Document";
+              const displayLabel =
+                v.label?.trim() ||
+                v.jobRef?.trim() ||
+                `${kind} · ${new Date(v.createdAt ?? Date.now()).toLocaleDateString()}`;
+              const canPromote = !!v.tailoredResumeText;
               return (
                 <div key={v.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
                   <FileText className="w-4 h-4 text-brand shrink-0" />
-                  <div className="flex-1 text-sm text-slate-700">
-                    {label}
-                    {v.jobRef && <span className="text-slate-400"> · {v.jobRef}</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-slate-700 truncate">{displayLabel}</div>
+                    <div className="text-[11px] text-slate-400">{kind} · {new Date(v.createdAt ?? Date.now()).toLocaleDateString()}</div>
                   </div>
-                  <span className="text-xs text-slate-400">{new Date(v.createdAt ?? Date.now()).toLocaleDateString()}</span>
-                  <button onClick={() => setViewing({ label, content })} className="btn-ghost h-8 px-3 text-xs"><Eye className="w-3.5 h-3.5" /> View</button>
+                  <button onClick={() => setViewing({ label: displayLabel, content })} className="btn-ghost h-8 px-3 text-xs"><Eye className="w-3.5 h-3.5" /> View</button>
                   <button
                     onClick={() => {
                       const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
                       const a = document.createElement("a");
                       a.href = URL.createObjectURL(blob);
-                      a.download = `${label.replace(/\s+/g, "_")}.txt`;
+                      a.download = `${displayLabel.replace(/\s+/g, "_")}.txt`;
                       a.click();
                     }}
                     className="btn-ghost h-8 px-3 text-xs"
                   >
                     <Download className="w-3.5 h-3.5" /> Download
+                  </button>
+                  {canPromote && (
+                    <button onClick={() => promote(v.id)} disabled={promoteVersion.isPending} className="btn-ghost h-8 px-3 text-xs" title="Make this your base resume (the sample is kept)">
+                      <ArrowUpToLine className="w-3.5 h-3.5" /> Promote
+                    </button>
+                  )}
+                  <button onClick={() => removeSample(v.id)} disabled={deleteVersion.isPending} className="btn-ghost h-8 px-3 text-xs text-rose-500" title="Delete this sample">
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               );

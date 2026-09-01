@@ -1,0 +1,1 @@
+ALTER TABLE "applicant"."resume_versions" ADD COLUMN "label" varchar(120);

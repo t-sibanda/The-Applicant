@@ -71,6 +71,13 @@
       "when": 1787955360663,
       "tag": "0009_clever_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788236609252,
+      "tag": "0010_illegal_meteorite",
+      "breakpoints": true
     }
   ]
 }

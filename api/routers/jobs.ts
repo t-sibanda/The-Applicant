@@ -10,6 +10,8 @@ import { scoreRelevance, passesFilters } from "../services/relevance";
 import { suggestCompanies } from "../services/company-suggest";
 import { companyInsights } from "../services/company-insights";
 import { analyzeAts } from "../services/ats";
+import { chatCompletion } from "../services/ai";
+import { requireAIEntitlement } from "../lib/entitlements";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
@@ -263,7 +265,7 @@ export const jobsRouter = router({
 
       // ATS fit vs the current base resume (deterministic, instant).
       const resumeText = resume?.baseResumeText ?? "";
-      const ats = resumeText ? analyzeAts(resumeText, jobText) : null;
+      const ats = resumeText ? analyzeAts(resumeText, jobText, input.title) : null;
 
       // Blend into a single match rating. Relevance always counts; ATS only
       // when we have a resume to compare against.
@@ -293,6 +295,73 @@ export const jobsRouter = router({
         suggestionText,
         jobText: jobText.slice(0, 16000), // returned so the client can reuse it for curation without re-fetching
       };
+    }),
+
+  // Match chat: answer the user's questions about how well they fit a specific
+  // job, using their resume and profile targeting plus the pasted job text as
+  // the only context. No invented metrics.
+  matchChat: authedProcedure
+    .input(
+      z.object({
+        jobText: z.string().min(1).max(16000),
+        jobTitle: z.string().max(300).optional(),
+        question: z.string().min(1).max(2000),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string().max(4000),
+            }),
+          )
+          .max(20)
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const profile = await getActiveProfile(ctx.user.id);
+      const resume = (
+        await getDb()
+          .select()
+          .from(resumeProfiles)
+          .where(eq(resumeProfiles.userId, ctx.user.id))
+          .limit(1)
+      ).at(0);
+
+      const resumeText = resume?.baseResumeText?.trim() || "(no resume on file yet)";
+      const targeting = [
+        profile?.targetRole ? `Target role: ${profile.targetRole}` : null,
+        profile?.targetIndustry ? `Target industry: ${profile.targetIndustry}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const system = [
+        "You are a candid job-fit assistant inside The Applicant.",
+        "Answer only about how well this candidate fits THIS job.",
+        "Base every answer on the candidate's resume and the job text below.",
+        "Be honest about gaps. Do not invent numbers, metrics, or facts.",
+        "Keep answers short, plain, and warm. No em dashes.",
+        "",
+        input.jobTitle ? `Job title: ${input.jobTitle}` : "",
+        targeting ? `Candidate targeting:\n${targeting}` : "",
+        "",
+        "Candidate resume:",
+        resumeText,
+        "",
+        "Job description:",
+        input.jobText,
+      ]
+        .filter((l) => l !== "")
+        .join("\n");
+
+      const messages = [
+        { role: "system" as const, content: system },
+        ...((input.history ?? []).map((m) => ({ role: m.role, content: m.content }))),
+        { role: "user" as const, content: input.question },
+      ];
+
+      return chatCompletion(messages, { maxTokens: 700 });
     }),
 
   list: authedProcedure

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Assistant } from "@/components/Assistant";
+import { getWorkingSession, setWorkingSession } from "@/lib/workingSession";
+import { useEffect } from "react";
 
 type Mode = "assistant" | "tailor" | "cover" | "ats" | "chat" | "skillgap";
 
@@ -29,6 +31,16 @@ export default function Optimizer() {
   const [jobDescription, setJobDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+
+  // Carry over: if a job was scanned on the Jobs page, prefill it here so the
+  // user never pastes the same job twice.
+  useEffect(() => {
+    const s = getWorkingSession();
+    if (!s) return;
+    if (s.jobDescription) setJobDescription((v) => v || s.jobDescription!);
+    if (s.companyName) setCompanyName((v) => v || s.companyName!);
+    if (s.jobTitle) setJobTitle((v) => v || s.jobTitle!);
+  }, []);
   const [result, setResult] = useState("");
   const [ats, setAts] = useState<Record<string, unknown> | null>(null);
   const [gap, setGap] = useState<Record<string, unknown> | null>(null);
@@ -74,7 +86,7 @@ export default function Optimizer() {
         if (res.success && res.content) { setResult(res.content); toast.success("Cover letter ready"); }
         else toast.error(res.error ?? "Failed");
       } else if (mode === "ats") {
-        const res = await atsMut.mutateAsync({ resumeText: profile.baseResumeText, jobDescription });
+        const res = await atsMut.mutateAsync({ resumeText: profile.baseResumeText, jobDescription, companyName: companyName || undefined });
         if (res.success && res.content) { try { setAts(JSON.parse(res.content)); } catch { setResult(res.content); } }
         else toast.error(res.error ?? "Failed");
       } else if (mode === "skillgap") {
@@ -116,7 +128,13 @@ export default function Optimizer() {
   };
 
   const logApplication = async () => {
-    await logApp.mutateAsync({ companyName: companyName || jobTitle || "Application", status: "applied" });
+    const s = getWorkingSession();
+    await logApp.mutateAsync({
+      companyName: companyName || jobTitle || "Application",
+      jobTitle: jobTitle || undefined,
+      jobUrl: s?.jobUrl,
+      status: "applied",
+    });
     await utils.applications.list.invalidate();
     toast.success("Logged to Applications");
   };

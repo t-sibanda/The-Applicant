@@ -86,6 +86,7 @@ export const resumeRouter = router({
     .input(
       z.object({
         resumeProfileId: z.number(),
+        label: z.string().max(120).optional(),
         tailoredResumeText: z.string().optional(),
         coverLetter: z.string().optional(),
         jobRef: z.string().optional(),
@@ -110,12 +111,82 @@ export const resumeRouter = router({
         .insert(resumeVersions)
         .values({
           resumeProfileId: input.resumeProfileId,
+          label: input.label,
           tailoredResumeText: input.tailoredResumeText,
           coverLetter: input.coverLetter,
           jobRef: input.jobRef,
         })
         .returning();
       return rows[0];
+    }),
+
+  // Promote a saved sample to the base resume. Copies the sample's text into
+  // the owning profile's base resume and leaves the sample record intact.
+  promoteVersion: authedProcedure
+    .input(z.object({ versionId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      // Join back to the owning profile to verify ownership.
+      const rows = await db
+        .select({
+          versionId: resumeVersions.id,
+          profileId: resumeProfiles.id,
+          text: resumeVersions.tailoredResumeText,
+        })
+        .from(resumeVersions)
+        .innerJoin(
+          resumeProfiles,
+          eq(resumeVersions.resumeProfileId, resumeProfiles.id),
+        )
+        .where(
+          and(
+            eq(resumeVersions.id, input.versionId),
+            eq(resumeProfiles.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Resume sample not found." });
+      if (!row.text)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This sample has no resume text to promote.",
+        });
+
+      await db
+        .update(resumeProfiles)
+        .set({ baseResumeText: row.text })
+        .where(eq(resumeProfiles.id, row.profileId));
+
+      return { success: true as const, resumeProfileId: row.profileId };
+    }),
+
+  // Delete a saved sample. Removes only the target version; the base resume
+  // and other samples are untouched.
+  deleteVersion: authedProcedure
+    .input(z.object({ versionId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const owned = await db
+        .select({ versionId: resumeVersions.id })
+        .from(resumeVersions)
+        .innerJoin(
+          resumeProfiles,
+          eq(resumeVersions.resumeProfileId, resumeProfiles.id),
+        )
+        .where(
+          and(
+            eq(resumeVersions.id, input.versionId),
+            eq(resumeProfiles.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+      if (!owned[0])
+        throw new TRPCError({ code: "NOT_FOUND", message: "Resume sample not found." });
+
+      await db.delete(resumeVersions).where(eq(resumeVersions.id, input.versionId));
+      return { success: true as const };
     }),
 
   listVersions: authedProcedure

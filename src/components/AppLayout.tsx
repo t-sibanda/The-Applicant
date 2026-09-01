@@ -18,10 +18,13 @@ import {
   Clapperboard,
   GripVertical,
   RotateCcw,
+  Eraser,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/cn";
+import { clearWorkingSession, useWorkingSession } from "@/lib/workingSession";
+import { toast } from "sonner";
 
 type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean };
 
@@ -117,6 +120,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const tier = user?.subscriptionTier ?? "free";
 
+  // Global clear: wipes the current working job/session from the client only.
+  // It never deletes saved resumes, samples, applications, or profile data.
+  const session = useWorkingSession();
+  const clearSession = () => {
+    if (!window.confirm("Clear your current working session? This clears the job you are working on and its drafts from this device. Your saved resumes, samples, applications, and profile are not affected. This cannot be undone.")) return;
+    clearWorkingSession();
+    toast.success("Working session cleared.");
+  };
+
   return (
     <div className="min-h-screen flex relative z-10">
       <aside className="w-60 bg-white/80 backdrop-blur-xl border-r border-white/40 flex flex-col p-3 sticky top-0 h-screen shadow-[1px_0_20px_rgba(15,23,42,0.06)]">
@@ -195,6 +207,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-[var(--border)] pt-3 mt-2">
+          {session && (
+            <button
+              onClick={clearSession}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50 w-full transition-colors"
+              title="Clear the job you are working on. Saved data is kept."
+            >
+              <Eraser className="w-[18px] h-[18px]" />
+              Clear working session
+            </button>
+          )}
           <NavLink to="/account" className="block px-3 pb-2 rounded-xl hover:bg-slate-50 py-1">
             <div className="text-xs font-semibold text-slate-700 truncate">
               {user?.name || user?.email}
