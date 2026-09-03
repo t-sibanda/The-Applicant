@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router";
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   LayoutDashboard,
   User,
@@ -16,8 +16,6 @@ import {
   Mic,
   Play,
   Clapperboard,
-  GripVertical,
-  RotateCcw,
   Eraser,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -27,45 +25,74 @@ import { clearWorkingSession, useWorkingSession } from "@/lib/workingSession";
 import { toast } from "sonner";
 
 type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean };
+type NavSection = { label: string; hint: string; items: NavItem[] };
 
-// Default order. Story then Demo lead so a new user meets the flow first,
-// followed by the journey: set up → find → tailor & apply → grow.
-const NAV: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  // Intro
-  { to: "/story", label: "Watch the Story", icon: Clapperboard },
-  { to: "/demo", label: "Product Demo", icon: Play },
-  // 1. Set up
-  { to: "/profiles", label: "Profile & Portfolio", icon: User },
-  { to: "/voice", label: "Voice Studio", icon: Mic },
-  { to: "/resume", label: "Resume", icon: FileText },
-  // 2. Find
-  { to: "/jobs", label: "Jobs", icon: Briefcase },
-  // 3. Tailor & apply
-  { to: "/optimizer", label: "AI Optimizer", icon: Bot },
-  { to: "/applications", label: "Applications", icon: Send },
-  // 4. Grow
-  { to: "/growth", label: "Growth", icon: GraduationCap },
-  // Reference / support
-  { to: "/support", label: "Help & Support", icon: LifeBuoy },
-  { to: "/billing", label: "Billing", icon: CreditCard },
+// The nav mirrors the job-hunt journey as three stages:
+//   1. PREPARE — who you are (profile, voice, resume)
+//   2. APPLY   — find roles and tailor applications
+//   3. ADVANCE — track outcomes and grow
+// Section order is deliberate; the flow is the product.
+const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "",
+    hint: "",
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard, end: true }],
+  },
+  {
+    label: "Prepare",
+    hint: "Set up once",
+    items: [
+      { to: "/profiles", label: "Profile & Portfolio", icon: User },
+      { to: "/voice", label: "Voice Studio", icon: Mic },
+      { to: "/resume", label: "Resume", icon: FileText },
+    ],
+  },
+  {
+    label: "Apply",
+    hint: "Repeat per role",
+    items: [
+      { to: "/jobs", label: "Jobs", icon: Briefcase },
+      { to: "/optimizer", label: "AI Optimizer", icon: Bot },
+    ],
+  },
+  {
+    label: "Advance",
+    hint: "Track & grow",
+    items: [
+      { to: "/applications", label: "Applications", icon: Send },
+      { to: "/growth", label: "Career & Learning", icon: GraduationCap },
+    ],
+  },
+  {
+    label: "Resources",
+    hint: "",
+    items: [
+      { to: "/story", label: "Watch the Story", icon: Clapperboard },
+      { to: "/demo", label: "Product Demo", icon: Play },
+      { to: "/support", label: "Help & Support", icon: LifeBuoy },
+      { to: "/billing", label: "Billing", icon: CreditCard },
+    ],
+  },
 ];
 
-const NAV_ORDER_KEY = "ta_nav_order";
-
-/** Apply a saved order (array of `to` paths) to the current nav, keeping any
- *  newly added items (not in the saved order) at their default position. */
-function applyOrder(items: NavItem[], order: string[] | null): NavItem[] {
-  if (!order?.length) return items;
-  const byTo = new Map(items.map((i) => [i.to, i]));
-  const result: NavItem[] = [];
-  for (const to of order) {
-    const item = byTo.get(to);
-    if (item) { result.push(item); byTo.delete(to); }
-  }
-  // Append any items not present in the saved order (e.g. new features).
-  for (const item of items) if (byTo.has(item.to)) result.push(item);
-  return result;
+function NavRow({ item }: { item: NavItem }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+          isActive
+            ? "bg-brand-light text-brand"
+            : "text-slate-600 hover:bg-slate-50",
+        )
+      }
+    >
+      <item.icon className="w-[18px] h-[18px] shrink-0" />
+      {item.label}
+    </NavLink>
+  );
 }
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -73,44 +100,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const utils = trpc.useUtils();
   const logout = trpc.auth.logout.useMutation();
-
-  // Nav order is user-customizable via drag-and-drop and persisted locally.
-  const [items, setItems] = useState<NavItem[]>(NAV);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(NAV_ORDER_KEY);
-      if (saved) setItems(applyOrder(NAV, JSON.parse(saved)));
-    } catch {
-      /* ignore malformed saved order */
-    }
-  }, []);
-
-  const persist = useCallback((next: NavItem[]) => {
-    setItems(next);
-    try {
-      localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(next.map((i) => i.to)));
-    } catch {
-      /* storage may be unavailable */
-    }
-  }, []);
-
-  const onDrop = (from: number, to: number) => {
-    if (from === to) return;
-    const next = [...items];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    persist(next);
-  };
-
-  const resetOrder = () => {
-    try { localStorage.removeItem(NAV_ORDER_KEY); } catch { /* noop */ }
-    setItems(NAV);
-  };
-
-  const isCustomized = items.map((i) => i.to).join() !== NAV.map((i) => i.to).join();
 
   const doLogout = async () => {
     await logout.mutateAsync();
@@ -141,68 +130,33 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <nav className="flex-1 space-y-0.5 mt-3 overflow-y-auto">
-          {items.map((n, i) => (
-            <div
-              key={n.to}
-              draggable
-              onDragStart={(e) => { setDragIndex(i); e.dataTransfer.effectAllowed = "move"; }}
-              onDragOver={(e) => { e.preventDefault(); if (overIndex !== i) setOverIndex(i); }}
-              onDrop={(e) => { e.preventDefault(); if (dragIndex != null) onDrop(dragIndex, i); setDragIndex(null); setOverIndex(null); }}
-              onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
-              className={cn(
-                "group relative rounded-xl transition-all",
-                dragIndex === i && "opacity-40",
-                overIndex === i && dragIndex !== null && dragIndex !== i && "ring-2 ring-brand/40",
+        <nav className="flex-1 mt-2 overflow-y-auto">
+          {NAV_SECTIONS.map((section, si) => (
+            <div key={section.label || "top"} className={si > 0 ? "mt-4" : ""}>
+              {section.label && (
+                <div className="flex items-baseline justify-between px-3 pb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+                    {si}. {section.label}
+                  </span>
+                  {section.hint && (
+                    <span className="text-[9px] font-medium text-slate-300">{section.hint}</span>
+                  )}
+                </div>
               )}
-            >
-              <NavLink
-                to={n.to}
-                end={n.end}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2.5 pl-3 pr-8 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-brand-light text-brand"
-                      : "text-slate-600 hover:bg-slate-50",
-                  )
-                }
-              >
-                <n.icon className="w-[18px] h-[18px] shrink-0" />
-                {n.label}
-              </NavLink>
-              {/* Drag handle: appears on hover; the whole row is draggable. */}
-              <span
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
-                title="Drag to reorder"
-              >
-                <GripVertical className="w-4 h-4" />
-              </span>
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavRow key={item.to} item={item} />
+                ))}
+              </div>
             </div>
           ))}
-          {isCustomized && (
-            <button
-              onClick={resetOrder}
-              className="flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-[11px] font-semibold text-slate-400 hover:bg-slate-50 hover:text-slate-600 w-full transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset menu order
-            </button>
-          )}
           {isAdmin && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-brand-light text-brand"
-                    : "text-slate-600 hover:bg-slate-50",
-                )
-              }
-            >
-              <Shield className="w-[18px] h-[18px]" />
-              Admin
-            </NavLink>
+            <div className="mt-4">
+              <div className="px-3 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+                Admin
+              </div>
+              <NavRow item={{ to: "/admin", label: "Console", icon: Shield }} />
+            </div>
           )}
         </nav>
 
