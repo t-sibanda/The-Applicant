@@ -95,7 +95,14 @@ class S3Provider implements StorageProvider {
 
 class SupabaseProvider implements StorageProvider {
   private clientPromise = (async () => {
-    const mod = await import("@supabase/supabase-js");
+    // Optional dependency: tolerate it being absent so bundling and other
+    // storage providers keep working (same pattern as payments.ts).
+    const mod = await import("@supabase/supabase-js").catch(() => null);
+    if (!mod) {
+      throw new Error(
+        "Supabase storage selected but @supabase/supabase-js is not installed. Run `npm install` or set STORAGE_PROVIDER to s3 or local.",
+      );
+    }
     const client = mod.createClient(
       env.storage.supabaseUrl,
       env.storage.supabaseServiceKey,

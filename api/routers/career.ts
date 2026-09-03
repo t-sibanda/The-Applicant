@@ -51,7 +51,7 @@ Return JSON:
 Return ONLY valid JSON.`,
           },
         ],
-        { maxTokens: 3000 },
+        { maxTokens: 3000, temperature: 0.3, json: true },
       );
       if (!res.success || !res.content) return { success: false as const, error: res.error };
       const parsed = parseJsonFromAI(res.content);

@@ -120,7 +120,7 @@ export const assistantRouter = router({
         })),
       ];
 
-      const res = await chatCompletion(aiMessages, { maxTokens: 3500 });
+      const res = await chatCompletion(aiMessages, { maxTokens: 3500, temperature: 0.4, json: true });
       if (!res.success || !res.content) {
         return { success: false as const, reply: null, error: res.error };
       }

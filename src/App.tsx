@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 // stays small and the app shell appears fast.
 const Login = lazy(() => import("@/pages/Login"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Profiles = lazy(() => import("@/pages/Profiles"));
+// Profiles renders inside ProfileHub as a tab; no standalone route needed.
 const Jobs = lazy(() => import("@/pages/Jobs"));
 const Resume = lazy(() => import("@/pages/Resume"));
 const Optimizer = lazy(() => import("@/pages/Optimizer"));

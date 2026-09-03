@@ -25,7 +25,10 @@ const TOOLS: { id: Mode; label: string; icon: React.ElementType; desc: string }[
 export default function Optimizer() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
-  const isPaid = user?.subscriptionTier === "basic" || user?.subscriptionTier === "pro";
+  // Gate on the server's effective plan (tier + admin grants), not the raw
+  // tier, so granted access works the same as a paid tier.
+  const access = trpc.auth.myAccess.useQuery(undefined, { enabled: !!user });
+  const isPaid = access.data?.plan.aiOptimizer ?? false;
 
   const [mode, setMode] = useState<Mode>("assistant");
   const [jobDescription, setJobDescription] = useState("");

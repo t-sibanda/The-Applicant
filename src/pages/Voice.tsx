@@ -59,7 +59,9 @@ function TagList({ items, onChange, suggestions }: { items: string[]; onChange: 
 
 export default function Voice() {
   const { user } = useAuth();
-  const isPaid = user?.subscriptionTier === "basic" || user?.subscriptionTier === "pro";
+  // Gate on the server's effective plan (tier + admin grants).
+  const access = trpc.auth.myAccess.useQuery(undefined, { enabled: !!user });
+  const isPaid = access.data?.plan.aiOptimizer ?? false;
   const utils = trpc.useUtils();
   const data = trpc.voice.get.useQuery();
   const analyze = trpc.voice.analyze.useMutation();

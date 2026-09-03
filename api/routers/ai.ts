@@ -43,7 +43,7 @@ export const aiRouter = router({
     .input(z.object({ description: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
-      const res = await chatCompletion(parseJobMessages(input.description));
+      const res = await chatCompletion(parseJobMessages(input.description), { temperature: 0.2, json: true });
       if (!res.success || !res.content)
         return { success: false as const, parsed: null, error: res.error };
       const parsed = parseJsonFromAI(res.content);
@@ -141,7 +141,7 @@ Return JSON:
 Return ONLY valid JSON.`,
         },
       ];
-      const aiRes = await chatCompletion(semanticMsgs, { maxTokens: 1500 });
+      const aiRes = await chatCompletion(semanticMsgs, { maxTokens: 1500, temperature: 0.2, json: true });
       const semantic = aiRes.success && aiRes.content
         ? parseJsonFromAI<{ semanticScore: number; strengths: string[]; prioritizedFixes: string[] }>(aiRes.content)
         : null;
@@ -190,7 +190,7 @@ Return ONLY valid JSON.`,
     .input(z.object({ samples: z.array(z.string().min(1)).min(1).max(10) }))
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
-      return chatCompletion(voiceAnalysisMessages(input.samples));
+      return chatCompletion(voiceAnalysisMessages(input.samples), { temperature: 0.3 });
     }),
 
   interviewQuestion: authedProcedure
@@ -260,7 +260,7 @@ Return ONLY valid JSON.`,
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
-      const res = await chatCompletion(interviewEvalMessages(input));
+      const res = await chatCompletion(interviewEvalMessages(input), { temperature: 0.2, json: true });
       if (!res.success || !res.content) return res;
       const parsed = parseJsonFromAI(res.content);
       return {
@@ -279,9 +279,10 @@ Return ONLY valid JSON.`,
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
-      const res = await chatCompletion(
-        skillGapMessages(input.resume, input.jobDescription),
-      );
+      const res = await chatCompletion(skillGapMessages(input.resume, input.jobDescription), {
+        temperature: 0.2,
+        json: true,
+      });
       if (!res.success || !res.content) return res;
       const parsed = parseJsonFromAI(res.content);
       return {

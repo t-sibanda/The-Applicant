@@ -117,10 +117,10 @@ export default function Profiles({ embedded }: { embedded?: boolean } = {}) {
           <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${completenessPct}%` }} />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>�, � Active profile</div>
-          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>�, � Resume</div>
-          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>�, � Voice profile</div>
-          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>�, � Saved items</div>
+          <div className={`flex items-center gap-1.5 ${activeProfile ? "text-emerald-600" : "text-slate-400"}`}>{activeProfile ? "✓" : "○"} Active profile</div>
+          <div className={`flex items-center gap-1.5 ${hasResume ? "text-emerald-600" : "text-slate-400"}`}>{hasResume ? "✓" : "○"} Resume</div>
+          <div className={`flex items-center gap-1.5 ${hasVoice ? "text-emerald-600" : "text-slate-400"}`}>{hasVoice ? "✓" : "○"} Voice profile</div>
+          <div className={`flex items-center gap-1.5 ${(saved.data?.length ?? 0) > 0 ? "text-emerald-600" : "text-slate-400"}`}>{(saved.data?.length ?? 0) > 0 ? "✓" : "○"} Saved items</div>
         </div>
       </div>
 

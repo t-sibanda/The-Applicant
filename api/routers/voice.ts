@@ -139,7 +139,7 @@ export const voiceRouter = router({
       const r = await getResume(ctx.user.id);
       if (!r) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Create your resume first." });
 
-      const res = await chatCompletion(analyzePrompt(input.samples), { maxTokens: 1500 });
+      const res = await chatCompletion(analyzePrompt(input.samples), { maxTokens: 1500, temperature: 0.2, json: true });
       if (!res.success || !res.content) return { success: false as const, error: res.error };
       const parsed = parseJsonFromAI(res.content);
       const v = voiceSchema.safeParse(parsed);
@@ -187,7 +187,7 @@ The user says: "${input.feedback}"
 Apply their correction and return the FULL updated JSON (same fields). Return ONLY valid JSON.`,
           },
         ],
-        { maxTokens: 1500 },
+        { maxTokens: 1500, temperature: 0.2, json: true },
       );
       if (!res.success || !res.content) return { success: false as const, error: res.error };
       const parsed = parseJsonFromAI(res.content);

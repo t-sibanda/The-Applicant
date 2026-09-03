@@ -465,7 +465,7 @@ export const applicationsRouter = router({
           history: (input.history ?? []) as { role: "user" | "assistant"; content: string }[],
           userMessage: input.message,
         }),
-        { maxTokens: 3200 },
+        { maxTokens: 3200, temperature: 0.4 },
       );
       if (!res.success || !res.content) return { success: false as const, reply: null, revisedDoc: null, error: res.error };
 

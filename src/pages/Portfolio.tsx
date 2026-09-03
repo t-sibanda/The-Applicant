@@ -221,7 +221,7 @@ function PortfolioPreview({ headline, about, accomplishments, skills, links, tem
             </div>
           )}
           {links?.length > 0 && (
-            <div className="flex flex-wrap gap-3 pt-2">{links.map((l: any, i: number) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-sm font-semibold" style={{ color: accent }}>{l.label} �, </a>)}</div>
+            <div className="flex flex-wrap gap-3 pt-2">{links.map((l: any, i: number) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-sm font-semibold" style={{ color: accent }}>{l.label} ↗</a>)}</div>
           )}
         </div>
       </div>

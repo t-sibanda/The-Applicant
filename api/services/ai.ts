@@ -52,6 +52,8 @@ async function callProvider(
   model: string,
   messages: ChatMessage[],
   maxTokens: number,
+  temperature: number,
+  json: boolean,
 ): Promise<AIResult> {
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -62,10 +64,14 @@ async function callProvider(
     body: JSON.stringify({
       model,
       messages,
-      temperature: 0.7,
+      temperature,
       // Reasoning models (e.g. gpt-oss) consume tokens "thinking"; give ample
       // budget so the visible answer isn't truncated.
       max_tokens: maxTokens,
+      // Structured-output mode: forces the provider to emit valid JSON, which
+      // removes most parse failures on extraction/scoring endpoints. Every
+      // prompt that sets json already instructs the model to return JSON.
+      ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
   });
 
@@ -92,14 +98,21 @@ async function callProvider(
  * Provider-agnostic chat completion with automatic fallback.
  * Never throws: always returns a structured AIResult.
  * Model id and provider come from config so a deprecation is a config change.
+ *
+ * Options:
+ * - temperature: defaults to 0.7 (writing tasks). Pass 0-0.2 for extraction,
+ *   scoring, and classification so identical inputs score identically.
+ * - json: enable provider JSON mode for endpoints that parse the response.
  */
 export async function chatCompletion(
   messages: ChatMessage[],
-  opts: { model?: string; maxTokens?: number } = {},
+  opts: { model?: string; maxTokens?: number; temperature?: number; json?: boolean } = {},
 ): Promise<AIResult> {
   // Groq free tier caps total tokens-per-minute (input + output) at ~8000.
   // Keep the output budget modest so prompt + completion stays under the limit.
   const maxTokens = opts.maxTokens ?? 3000;
+  const temperature = opts.temperature ?? 0.7;
+  const json = opts.json ?? false;
   let lastError: string | null = null;
 
   // Guard against oversized inputs: trim very long message content so the
@@ -116,6 +129,8 @@ export async function chatCompletion(
         opts.model || env.ai.model,
         trimmed,
         maxTokens,
+        temperature,
+        json,
       );
       if (result.success) return result;
       // Keep the real provider error so it can be surfaced if all attempts fail.
@@ -133,6 +148,8 @@ export async function chatCompletion(
         env.ai.fallbackModel || env.ai.model,
         trimmed,
         maxTokens,
+        temperature,
+        json,
       );
       if (result.success) return result;
       return result;
