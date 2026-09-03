@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq, desc } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { learningItems } from "../db/schema";
+import { learningItems, resumeProfiles } from "../db/schema";
 import { chatCompletion, parseJsonFromAI } from "../services/ai";
 import { hasFeature, requireAIEntitlement } from "../lib/entitlements";
 import { fetchJobText } from "../lib/fetch-job-text";
@@ -35,6 +35,7 @@ export const learningRouter = router({
     .mutation(async ({ ctx, input }) => {
       let summary: string | null = null;
       let takeaways: string[] = [];
+      let skillTags: string[] = [];
 
       // Best-effort AI enrichment. Grant-aware: honors tier AND admin grants.
       const canAI = await hasFeature(ctx.user, "aiOptimizer");
@@ -63,16 +64,17 @@ Their note: ${input.note ?? "(none)"}
 ${source}
 
 Produce:
-{ "summary": "1-2 sentence summary", "takeaways": ["3-5 concrete tips the user can apply to their resume/profile/career"] }
+{ "summary": "1-2 sentence summary", "takeaways": ["3-5 concrete tips the user can apply to their resume/profile/career"], "skillTags": ["0-4 specific skills this resource teaches, e.g. \\"Kubernetes\\", \\"System design\\" — empty if none"] }
 Return ONLY valid JSON.`,
             },
           ],
           { maxTokens: 800, temperature: 0.2, json: true },
         );
         if (res.success && res.content) {
-          const parsed = parseJsonFromAI<{ summary: string; takeaways: string[] }>(res.content);
+          const parsed = parseJsonFromAI<{ summary: string; takeaways: string[]; skillTags?: string[] }>(res.content);
           summary = parsed?.summary ?? null;
           takeaways = parsed?.takeaways ?? [];
+          skillTags = (parsed?.skillTags ?? []).filter(Boolean).slice(0, 4);
         }
       }
 
@@ -85,6 +87,7 @@ Return ONLY valid JSON.`,
           category: input.category,
           summary,
           takeaways,
+          skillTags,
         })
         .returning();
       return rows[0];
@@ -99,6 +102,42 @@ Return ONLY valid JSON.`,
         .returning();
       if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND" });
       return { success: true };
+    }),
+
+  // Mark a resource as learned (or move it back). On "done" its skill tags
+  // merge into the profile's skills, so learning visibly upgrades the profile
+  // and feeds future job-match scoring.
+  setStatus: authedProcedure
+    .input(z.object({ id: z.number(), status: z.enum(["pending", "done"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const rows = await db
+        .update(learningItems)
+        .set({ status: input.status })
+        .where(and(eq(learningItems.id, input.id), eq(learningItems.userId, ctx.user.id)))
+        .returning();
+      const item = rows[0];
+      if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (input.status === "done") {
+        const tags = ((item.skillTags as string[]) ?? []).filter(Boolean);
+        if (tags.length) {
+          const rp = (
+            await db
+              .select()
+              .from(resumeProfiles)
+              .where(eq(resumeProfiles.userId, ctx.user.id))
+              .limit(1)
+          ).at(0);
+          if (rp) {
+            const have = new Set((((rp.skills as string[]) ?? [])).map((s) => s.toLowerCase()));
+            const merged = [...((rp.skills as string[]) ?? [])];
+            for (const t of tags) if (!have.has(t.toLowerCase())) merged.push(t);
+            await db.update(resumeProfiles).set({ skills: merged }).where(eq(resumeProfiles.id, rp.id));
+          }
+        }
+      }
+      return { success: true, item };
     }),
 
   // Aggregate takeaways into a set of profile-enhancement tips.

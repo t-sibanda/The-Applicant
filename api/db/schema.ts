@@ -76,6 +76,9 @@ export const resumeProfiles = pgTable(
     baseResumeJson: jsonb("base_resume_json"),
     voiceProfile: text("voice_profile"),
     voiceJson: jsonb("voice_json"),
+    // Confirmed skills (string[]). Fed by skill-gap analysis and by completed
+    // learning items, so the profile always reflects what the user can do.
+    skills: jsonb("skills"),
     // "Who is X?" self-discovery answers + AI persona summary.
     personaJson: jsonb("persona_json"),
     // Gamified personality results (DISC, Big Five, values, Johari).
@@ -192,6 +195,24 @@ export const applications = pgTable(
   (t) => ({
     userIdx: index("applications_user_idx").on(t.userId),
   }),
+);
+
+// ─── application_events (status change audit trail) ─────────────
+export const applicationEvents = pgTable(
+  "application_events",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    fromStatus: varchar("from_status", { length: 30 }),
+    toStatus: varchar("to_status", { length: 30 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ appIdx: index("app_events_app_idx").on(t.applicationId) }),
 );
 
 // ─── subscriptions ───────────────────────────────────────────────
@@ -342,11 +363,16 @@ export const learningItems = pgTable(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    url: text("url").notNull(),
+    url: text("url"), // null for skill-gap generated items (no source link)
     title: varchar("title", { length: 300 }),
     category: varchar("category", { length: 40 }).notNull().default("tip"), // tip | resume | career | industry
     summary: text("summary"),
     takeaways: jsonb("takeaways"), // string[] actionable points
+    // Skills this resource builds (string[]). On completion they merge into
+    // the profile's skills, closing the learn -> profile loop.
+    skillTags: jsonb("skill_tags"),
+    // pending = to learn, done = learned (skills merged into profile)
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => ({ userIdx: index("learning_user_idx").on(t.userId) }),

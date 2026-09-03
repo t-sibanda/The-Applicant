@@ -94,7 +94,10 @@ export default function Optimizer() {
         else toast.error(res.error ?? "Failed");
       } else if (mode === "skillgap") {
         const res = await gapMut.mutateAsync({ resume: profile.baseResumeText, jobDescription });
-        if (res.success && res.content) { try { setGap(JSON.parse(res.content)); } catch { setResult(res.content); } }
+        if (res.success && res.content) {
+          try { setGap(JSON.parse(res.content)); } catch { setResult(res.content); }
+          toast.success("Gaps saved to your Learning plan (Career & Learning)");
+        }
         else toast.error(res.error ?? "Failed");
       }
     } catch (e) {

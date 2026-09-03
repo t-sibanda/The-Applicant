@@ -2,9 +2,9 @@ import { z } from "zod";
 import { and, eq, desc } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { applications, resumeProfiles, jobs } from "../db/schema";
+import { applications, applicationEvents, resumeProfiles, jobs } from "../db/schema";
 import { getActiveProfile } from "./profiles";
-import { ApplicationStatus } from "../../shared/constants";
+import { ApplicationStatus, ApplicationTransitions, type ApplicationStatusType } from "../../shared/constants";
 import { chatCompletion } from "../services/ai";
 import { tailorResumeMessages, coverLetterMessages, docEditMessages } from "../services/prompts";
 import { requireFeature, requireAIEntitlement, effectivePlan } from "../lib/entitlements";
@@ -353,18 +353,50 @@ export const applicationsRouter = router({
   updateStatus: authedProcedure
     .input(z.object({ id: z.number(), status: statusEnum }))
     .mutation(async ({ ctx, input }) => {
-      const rows = await getDb()
+      const db = getDb();
+      const current = (
+        await db
+          .select()
+          .from(applications)
+          .where(
+            and(
+              eq(applications.id, input.id),
+              eq(applications.userId, ctx.user.id),
+            ),
+          )
+          .limit(1)
+      ).at(0);
+      if (!current)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+
+      // Enforce the pipeline: only defined forward/sideways moves are allowed
+      // and terminal states (offer, rejected) are final. Keeps metrics honest.
+      if (input.status !== current.status) {
+        const allowed = ApplicationTransitions[current.status as ApplicationStatusType] ?? [];
+        if (!allowed.includes(input.status)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Can't move from "${current.status}" to "${input.status}".`,
+          });
+        }
+      }
+
+      const rows = await db
         .update(applications)
         .set({ status: input.status })
-        .where(
-          and(
-            eq(applications.id, input.id),
-            eq(applications.userId, ctx.user.id),
-          ),
-        )
+        .where(eq(applications.id, current.id))
         .returning();
-      if (!rows[0])
-        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+
+      // Audit trail: every status change is an event, so pipeline metrics
+      // (and future interview-prep triggers) can be trusted.
+      if (input.status !== current.status) {
+        await db.insert(applicationEvents).values({
+          applicationId: current.id,
+          userId: ctx.user.id,
+          fromStatus: current.status,
+          toStatus: input.status,
+        });
+      }
       return rows[0];
     }),
 

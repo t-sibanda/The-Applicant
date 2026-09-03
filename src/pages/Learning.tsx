@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Plus, Trash2, ExternalLink, Loader2, Sparkles, BookOpen, Lightbulb } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Loader2, Sparkles, BookOpen, Lightbulb, Check, RotateCcw, Target } from "lucide-react";
 
 const CATS = [
   { id: "all", label: "All" },
@@ -25,6 +25,14 @@ export default function Learning({ embedded }: { embedded?: boolean } = {}) {
   const add = trpc.learning.add.useMutation();
   const remove = trpc.learning.remove.useMutation();
   const digest = trpc.learning.digest.useMutation();
+  const setStatus = trpc.learning.setStatus.useMutation();
+
+  const toggleDone = async (id: number, current: string) => {
+    const next = current === "done" ? "pending" : "done";
+    await setStatus.mutateAsync({ id, status: next });
+    await utils.learning.list.invalidate();
+    if (next === "done") toast.success("Marked as learned — skills added to your profile.");
+  };
 
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -100,29 +108,59 @@ export default function Learning({ embedded }: { embedded?: boolean } = {}) {
 
       {/* Items */}
       <div className="space-y-3">
-        {items.data?.map((it) => (
-          <div key={it.id} className="card p-4 card-hover">
+        {items.data?.map((it) => {
+          const done = it.status === "done";
+          const tags = ((it.skillTags as string[]) ?? []).filter(Boolean);
+          return (
+          <div key={it.id} className={`card p-4 card-hover ${done ? "opacity-70" : ""}`}>
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-brand-light flex items-center justify-center shrink-0">
-                <BookOpen className="w-4 h-4 text-brand" />
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${done ? "bg-emerald-50" : "bg-brand-light"}`}>
+                {done ? <Check className="w-4 h-4 text-emerald-600" /> : <BookOpen className="w-4 h-4 text-brand" />}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <a href={it.url} target="_blank" rel="noreferrer" className="font-semibold text-sm text-slate-800 hover:text-brand truncate">{it.title}</a>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {it.url ? (
+                    <a href={it.url} target="_blank" rel="noreferrer" className="font-semibold text-sm text-slate-800 hover:text-brand truncate">{it.title}</a>
+                  ) : (
+                    <span className="font-semibold text-sm text-slate-800 truncate">{it.title}</span>
+                  )}
                   <span className={`chip ${CAT_STYLE[it.category] ?? "bg-slate-100 text-slate-500"}`}>{it.category}</span>
-                  <a href={it.url} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-brand"><ExternalLink className="w-3.5 h-3.5" /></a>
+                  <span className={`chip ${done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {done ? "Learned" : "To learn"}
+                  </span>
+                  {it.url && (
+                    <a href={it.url} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-brand"><ExternalLink className="w-3.5 h-3.5" /></a>
+                  )}
                 </div>
                 {it.summary && <p className="text-xs text-slate-500 mt-1">{it.summary}</p>}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <Target className="w-3.5 h-3.5 text-brand" />
+                    {tags.map((t, i) => <span key={i} className="chip bg-brand-light text-brand">{t}</span>)}
+                  </div>
+                )}
                 {((it.takeaways as string[]) ?? []).length > 0 && (
                   <ul className="mt-2 space-y-1">{((it.takeaways as string[]) ?? []).map((t, i) => (
                     <li key={i} className="flex gap-2 text-xs text-slate-600"><span className="text-brand">•</span>{t}</li>
                   ))}</ul>
                 )}
               </div>
-              <button onClick={async () => { await remove.mutateAsync({ id: it.id }); await utils.learning.list.invalidate(); }} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => toggleDone(it.id, it.status)}
+                  disabled={setStatus.isPending}
+                  className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-semibold transition-colors ${done ? "text-slate-400 hover:bg-slate-50" : "text-emerald-600 hover:bg-emerald-50"}`}
+                  title={done ? "Move back to learning" : "Mark as learned — adds the skills to your profile"}
+                >
+                  {done ? <RotateCcw className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                  {done ? "Reopen" : "Learned"}
+                </button>
+                <button onClick={async () => { await remove.mutateAsync({ id: it.id }); await utils.learning.list.invalidate(); }} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
+              </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         {items.data?.length === 0 && (
           <div className="card p-8 text-center">
             <BookOpen className="w-10 h-10 mx-auto text-slate-200 mb-3" />

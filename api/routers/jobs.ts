@@ -63,10 +63,23 @@ export const jobsRouter = router({
         contractType: input.contractType,
       });
 
+      const db = getDb();
+
+      // The profile's confirmed skills (from skill-gap analysis and completed
+      // learning) feed matching: jobs mentioning them score as more relevant.
+      const resumeRow = (
+        await db
+          .select()
+          .from(resumeProfiles)
+          .where(eq(resumeProfiles.userId, ctx.user.id))
+          .limit(1)
+      ).at(0);
+      const profileSkills = ((resumeRow?.skills as string[]) ?? []).filter(Boolean);
+
       const relInputs = {
         targetRole: profile.targetRole,
         targetIndustry: profile.targetIndustry,
-        keywords: keywordList,
+        keywords: [...keywordList, ...profileSkills],
         company: input.company,
         location: input.location,
       };
@@ -75,8 +88,6 @@ export const jobsRouter = router({
       // relevance. A hard company filter already scoped the results.
       const explicitScope = !!input.company || keywordList.length > 0;
       const minRel = explicitScope ? 0 : (input.minRelevance ?? 45);
-
-      const db = getDb();
 
       // Log each source outcome for transparency (single batched insert).
       if (outcome.logs.length) {

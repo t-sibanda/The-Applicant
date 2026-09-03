@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
+import { getDb } from "../db/client";
+import { learningItems, resumeProfiles } from "../db/schema";
 import { chatCompletion, parseJsonFromAI } from "../services/ai";
 import { analyzeAts } from "../services/ats";
 import { requireAIEntitlement } from "../lib/entitlements";
@@ -284,7 +287,76 @@ Return ONLY valid JSON.`,
         json: true,
       });
       if (!res.success || !res.content) return res;
-      const parsed = parseJsonFromAI(res.content);
+      const parsed = parseJsonFromAI<{
+        matchingSkills?: string[];
+        missingSkills?: string[];
+        learningPlan?: { skill?: string; how?: string; weeks?: number }[];
+        readinessScore?: number;
+      }>(res.content);
+
+      // Close the loop: confirmed skills merge into the profile, and gaps
+      // become tracked learning items (deduped), so nothing evaporates.
+      if (parsed) {
+        try {
+          const db = getDb();
+          const rp = (
+            await db
+              .select()
+              .from(resumeProfiles)
+              .where(eq(resumeProfiles.userId, ctx.user.id))
+              .limit(1)
+          ).at(0);
+
+          const profileSkills = new Set(
+            (((rp?.skills as string[]) ?? [])).map((s) => s.toLowerCase()),
+          );
+          const matching = (parsed.matchingSkills ?? []).filter(Boolean);
+          if (rp && matching.length) {
+            const merged = [...((rp.skills as string[]) ?? [])];
+            for (const sk of matching) {
+              if (!profileSkills.has(sk.toLowerCase())) merged.push(sk);
+            }
+            await db
+              .update(resumeProfiles)
+              .set({ skills: merged })
+              .where(eq(resumeProfiles.id, rp.id));
+            for (const sk of matching) profileSkills.add(sk.toLowerCase());
+          }
+
+          const missing = (parsed.missingSkills ?? []).filter(Boolean);
+          if (missing.length) {
+            const existing = await db
+              .select()
+              .from(learningItems)
+              .where(eq(learningItems.userId, ctx.user.id));
+            const tracked = new Set(
+              existing.flatMap((i) =>
+                (((i.skillTags as string[]) ?? [])).map((t) => t.toLowerCase()),
+              ),
+            );
+            const plan = parsed.learningPlan ?? [];
+            for (const skill of missing.slice(0, 8)) {
+              const key = skill.toLowerCase();
+              if (tracked.has(key) || profileSkills.has(key)) continue;
+              const hint = plan.find((p) => p.skill?.toLowerCase() === key);
+              await db.insert(learningItems).values({
+                userId: ctx.user.id,
+                url: null,
+                title: `Learn: ${skill}`,
+                category: "career",
+                summary: hint?.how ?? null,
+                takeaways: hint?.how ? [hint.how] : [],
+                skillTags: [skill],
+                status: "pending",
+              });
+              tracked.add(key);
+            }
+          }
+        } catch {
+          // Persistence is best-effort; never fail the analysis over it.
+        }
+      }
+
       return {
         success: true as const,
         content: parsed ? JSON.stringify(parsed) : res.content,

@@ -59,6 +59,28 @@ export const ApplicationStatus = {
 export type ApplicationStatusType =
   (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 
+// Allowed pipeline moves. Keeps the tracker honest: an application flows
+// forward through real stages, and terminal states (offer, rejected) are
+// final. "rejected" is reachable from any non-terminal stage.
+export const ApplicationTransitions: Record<
+  ApplicationStatusType,
+  ApplicationStatusType[]
+> = {
+  saved: ["draft", "applied", "rejected"],
+  draft: ["ready", "saved", "rejected"],
+  ready: ["applied", "draft", "rejected"],
+  applied: ["phone_screen", "interview", "rejected"],
+  phone_screen: ["interview", "applied", "rejected"],
+  interview: ["offer", "phone_screen", "rejected"],
+  offer: [],
+  rejected: [],
+};
+
+export const TERMINAL_APPLICATION_STATUSES: ApplicationStatusType[] = [
+  ApplicationStatus.OFFER,
+  ApplicationStatus.REJECTED,
+];
+
 // The full feature catalog. Boolean features + a few numeric caps.
 export const Features = {
   AI_OPTIMIZER: "aiOptimizer",
