@@ -220,3 +220,72 @@ export function parseJsonFromAI<T = unknown>(raw: string): T | null {
   }
   return null;
 }
+
+/**
+ * Vision completion: reads an image (screenshot) and returns text.
+ *
+ * Uses the OpenAI-compatible multimodal message format, which Groq's vision
+ * models accept. The image is passed as a data URL or a public URL. Never
+ * throws; returns a structured AIResult. If no AI key is configured, returns a
+ * clear, honest error so the caller can fall back to manual paste.
+ */
+export async function visionCompletion(args: {
+  imageUrl: string; // data URL (data:image/png;base64,...) or https URL
+  prompt: string;
+  maxTokens?: number;
+}): Promise<AIResult> {
+  if (!env.ai.apiKey) {
+    return {
+      success: false,
+      content: null,
+      error: "Image reading is not configured. Paste the text instead, or add AI_API_KEY.",
+    };
+  }
+
+  const body = {
+    model: env.ai.visionModel || env.ai.model,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: args.prompt },
+          { type: "image_url", image_url: { url: args.imageUrl } },
+        ],
+      },
+    ],
+    temperature: 0.1,
+    max_tokens: args.maxTokens ?? 1500,
+  };
+
+  try {
+    const response = await fetch(env.ai.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.ai.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        content: null,
+        error: `Vision provider error ${response.status}: ${errorText.slice(0, 200)}`,
+      };
+    }
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content ?? "";
+    return content
+      ? { success: true, content, error: null }
+      : { success: false, content: null, error: "The image could not be read." };
+  } catch (err) {
+    return {
+      success: false,
+      content: null,
+      error: `Vision request failed: ${err instanceof Error ? err.message : "unknown"}`,
+    };
+  }
+}

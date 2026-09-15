@@ -4,11 +4,12 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, ExternalLink, Loader2, Sparkles, BookOpen,
   GraduationCap, Target, ChevronRight, X, Wand2, Pin, Image as ImageIcon,
+  Newspaper, RefreshCw,
 } from "lucide-react";
 
 type Topic = {
   id: number; name: string; kind: string; goal: string | null;
-  overview: string | null; keyFacts: unknown; course: unknown; progress: number; pinned: boolean;
+  overview: string | null; keyFacts: unknown; course: unknown; latest: unknown; progress: number; pinned: boolean;
 };
 
 export default function Learning({ embedded }: { embedded?: boolean } = {}) {
@@ -20,6 +21,8 @@ export default function Learning({ embedded }: { embedded?: boolean } = {}) {
   const removeTopic = trpc.learning.removeTopic.useMutation();
   const suggest = trpc.learning.suggestTopics.useMutation();
   const addItem = trpc.learning.add.useMutation();
+  const ocr = trpc.learning.ocr.useMutation();
+  const refreshLatest = trpc.learning.refreshLatest.useMutation();
 
   const [openId, setOpenId] = useState<number | null>(null);
   const openTopic = topics.data?.find((t) => t.id === openId) as Topic | undefined;
@@ -61,6 +64,34 @@ export default function Learning({ embedded }: { embedded?: boolean } = {}) {
     if (!res.success) return toast.error(res.error ?? "Failed", { id: t });
     await utils.learning.listTopics.invalidate();
     toast.success("Course ready", { id: t });
+  };
+
+  // Read a screenshot into the content box via OCR, so the user does not type.
+  const onScreenshot = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Pick an image file");
+    if (file.size > 6_000_000) return toast.error("Image is too large (max ~6MB)");
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    const t = toast.loading("Reading the screenshot…");
+    const res = await ocr.mutateAsync({ imageDataUrl: dataUrl }).catch((e) => { toast.error(e.message, { id: t }); return null; });
+    if (!res) return;
+    if (!res.success || !res.text) return toast.error(res.error ?? "Could not read the image", { id: t });
+    setMContent((prev) => (prev ? prev + "\n\n" + res.text : res.text!));
+    toast.success("Text pulled from the screenshot. Review, then save.", { id: t });
+  };
+
+  const runRefresh = async (id: number) => {
+    const t = toast.loading("Reading your saved sources for the latest…");
+    const res = await refreshLatest.mutateAsync({ id }).catch((e) => { toast.error(e.message, { id: t }); return null; });
+    if (!res) return;
+    if (!res.success) return toast.error(res.error ?? "Failed", { id: t });
+    await utils.learning.listTopics.invalidate();
+    toast.success(res.sourcesRead ? `Updated from ${res.sourcesRead} source(s).` : "Updated (no fresh sources could be read).", { id: t });
   };
 
   const saveMaterial = async () => {
@@ -213,12 +244,47 @@ export default function Learning({ embedded }: { embedded?: boolean } = {}) {
                 </div>
               )}
 
+              {/* Latest on this topic */}
+              <div className="rounded-xl border border-[var(--border)] p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2"><Newspaper className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700">Latest</h4></div>
+                  <button onClick={() => runRefresh(openTopic.id)} disabled={refreshLatest.isPending} className="btn-ghost h-8 px-3 text-xs">
+                    {refreshLatest.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh latest
+                  </button>
+                </div>
+                {(() => {
+                  const latest = openTopic.latest as { updatedAt?: string; items?: { title: string; note: string; url?: string }[]; caveat?: string } | null;
+                  if (!latest?.items?.length) {
+                    return <p className="text-xs text-slate-400">No update yet. Refresh to read your saved source links for what to know now.</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {latest.updatedAt && <div className="text-[10px] text-slate-400">Updated {new Date(latest.updatedAt).toLocaleString()}</div>}
+                      {latest.items.map((it, i) => (
+                        <div key={i} className="text-xs">
+                          <div className="font-semibold text-slate-700">{it.title}</div>
+                          <div className="text-slate-500">{it.note}</div>
+                          {it.url && <a href={it.url} target="_blank" rel="noreferrer" className="text-brand font-semibold inline-flex items-center gap-1">Source <ExternalLink className="w-3 h-3" /></a>}
+                        </div>
+                      ))}
+                      {latest.caveat && <p className="text-[11px] text-slate-400 italic mt-1">{latest.caveat}</p>}
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Add material */}
               <div className="rounded-xl border border-[var(--border)] p-3">
-                <div className="flex items-center gap-2 mb-2"><Plus className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700">Add material</h4><span className="text-[11px] text-slate-400 inline-flex items-center gap-1"><ImageIcon className="w-3 h-3" /> paste screenshot text or a link</span></div>
+                <div className="flex items-center gap-2 mb-2"><Plus className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700">Add material</h4><span className="text-[11px] text-slate-400">a link, pasted notes, or a screenshot</span></div>
                 <input value={mUrl} onChange={(e) => setMUrl(e.target.value)} placeholder="Link (article, post, docs…)" className="input mb-2" />
-                <textarea value={mContent} onChange={(e) => setMContent(e.target.value)} placeholder="Or paste text / notes / text from a screenshot…" className="textarea min-h-[90px]" />
-                <button onClick={saveMaterial} disabled={addItem.isPending} className="btn-primary mt-2">{addItem.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Plus className="w-4 h-4" /> Save &amp; summarize</>}</button>
+                <textarea value={mContent} onChange={(e) => setMContent(e.target.value)} placeholder="Paste text / notes, or upload a screenshot to read it automatically…" className="textarea min-h-[90px]" />
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <button onClick={saveMaterial} disabled={addItem.isPending} className="btn-primary">{addItem.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Plus className="w-4 h-4" /> Save &amp; summarize</>}</button>
+                  <label className={`btn-ghost cursor-pointer ${ocr.isPending ? "opacity-60 pointer-events-none" : ""}`}>
+                    {ocr.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />} Read a screenshot
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { onScreenshot(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                  </label>
+                </div>
               </div>
 
               {/* Saved material */}

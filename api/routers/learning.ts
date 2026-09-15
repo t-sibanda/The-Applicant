@@ -3,7 +3,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
 import { learningItems, learningTopics, resumeProfiles } from "../db/schema";
-import { chatCompletion, parseJsonFromAI } from "../services/ai";
+import { chatCompletion, parseJsonFromAI, visionCompletion } from "../services/ai";
 import { hasFeature, requireAIEntitlement } from "../lib/entitlements";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { TRPCError } from "@trpc/server";
@@ -339,4 +339,85 @@ Suggest topics worth mastering to become more competitive. Return JSON:
     const parsed = parseJsonFromAI<{ topics: { name: string; kind: string; why: string }[] }>(res.content);
     return parsed ? { success: true as const, topics: parsed.topics ?? [] } : { success: false as const, error: "Could not parse." };
   }),
+
+  // OCR: read text out of a screenshot so the user does not have to type it.
+  // The image is sent as a data URL from the client. Returns extracted text
+  // the client can then save as material (via `add`).
+  ocr: authedProcedure
+    .input(z.object({ imageDataUrl: z.string().min(20).max(8_000_000) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      if (!/^data:image\//.test(input.imageDataUrl)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That does not look like an image." });
+      }
+      const res = await visionCompletion({
+        imageUrl: input.imageDataUrl,
+        prompt:
+          "Read this screenshot and return the meaningful text content only (article text, post, notes, slide). Preserve headings and bullet structure. Do not describe the image or add commentary.",
+        maxTokens: 1800,
+      });
+      if (!res.success || !res.content) return { success: false as const, text: null, error: res.error };
+      return { success: true as const, text: res.content.trim(), error: null };
+    }),
+
+  // Refresh latest: re-read the source links saved under a topic and produce a
+  // short "what to know now" note. Honest about coverage: it summarizes the
+  // pages it can actually fetch, and says so when a page is unreadable. It does
+  // not claim to have trawled the whole web.
+  refreshLatest: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const db = getDb();
+      const topic = await ownTopic(ctx.user.id, input.id);
+      if (!topic) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const items = await db
+        .select()
+        .from(learningItems)
+        .where(and(eq(learningItems.userId, ctx.user.id), eq(learningItems.topicId, input.id)))
+        .orderBy(desc(learningItems.createdAt));
+
+      const urls = items.map((i) => i.url).filter((u): u is string => !!u).slice(0, 6);
+      const fetched: { url: string; text: string }[] = [];
+      for (const url of urls) {
+        const text = await fetchJobText(url);
+        if (text) fetched.push({ url, text: text.slice(0, 3000) });
+      }
+
+      const sources = fetched.length
+        ? fetched.map((f) => `SOURCE ${f.url}:\n${f.text}`).join("\n\n---\n\n")
+        : "(No source links could be read. Base the note on the topic name and general knowledge, and say clearly that no fresh sources were available.)";
+
+      const res = await chatCompletion(
+        [
+          {
+            role: "system",
+            content:
+              "You brief a learner on the current state of a topic, grounded in the provided sources. Be accurate and honest: only claim what the sources support, and flag when you are relying on general knowledge rather than fresh sources. Note dates when present. Return ONLY valid JSON.",
+          },
+          {
+            role: "user",
+            content: `Topic: ${topic.name}
+${sources}
+
+Return JSON:
+{ "items": [ { "title": "short headline", "note": "1-2 sentence takeaway", "url": "source url if from a source, else omit" } ], "caveat": "one honest sentence on how fresh/complete this is" }
+5-8 items. Return ONLY valid JSON.`,
+          },
+        ],
+        { maxTokens: 1600, temperature: 0.3, json: true },
+      );
+      if (!res.success || !res.content) return { success: false as const, error: res.error };
+      const parsed = parseJsonFromAI<{ items: { title: string; note: string; url?: string }[]; caveat?: string }>(res.content);
+      if (!parsed) return { success: false as const, error: "Could not parse the update." };
+
+      const latest = { updatedAt: new Date().toISOString(), items: parsed.items ?? [], caveat: parsed.caveat ?? "" };
+      const rows = await db
+        .update(learningTopics)
+        .set({ latest, updatedAt: new Date() })
+        .where(eq(learningTopics.id, input.id))
+        .returning();
+      return { success: true as const, topic: rows[0], sourcesRead: fetched.length };
+    }),
 });

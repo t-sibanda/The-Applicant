@@ -36,6 +36,9 @@ const ai = {
   fallbackApiUrl: optional("AI_FALLBACK_API_URL"),
   fallbackApiKey: optional("AI_FALLBACK_API_KEY"),
   fallbackModel: optional("AI_FALLBACK_MODEL"),
+  // Vision model for OCR / screenshot reading. Uses the same key/endpoint as
+  // the primary provider unless overridden. Defaults to a Groq vision model.
+  visionModel: optional("AI_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
 };
 
 const storage = {
