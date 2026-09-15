@@ -43,8 +43,8 @@ const NAV_SECTIONS: NavSection[] = [
     label: "More",
     hint: "",
     items: [
-      { to: "/optimizer", label: "AI Optimizer", icon: Bot },
-      { to: "/growth", label: "Career & Learning", icon: GraduationCap },
+      { to: "/optimizer", label: "Resume Scratchpad", icon: Bot },
+      { to: "/growth", label: "Learning & Growth", icon: GraduationCap },
       { to: "/story", label: "Watch the Story", icon: Clapperboard },
       { to: "/demo", label: "Product Demo", icon: Play },
       { to: "/support", label: "Help & Support", icon: LifeBuoy },

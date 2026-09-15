@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
-  Plus, Send, Loader2, Download, Copy, ExternalLink, X, CheckCircle,
+  Plus, Send, Loader2, Copy, ExternalLink, X, CheckCircle,
   ScanSearch, Bot, Save, FileText, PenTool, Sparkles, ChevronRight, Check,
+  FileType, FileDown,
 } from "lucide-react";
+import { downloadTxt, downloadDocx, printPdf, copyText } from "@/lib/exportDoc";
 
 const STATUSES = ["draft", "ready", "saved", "applied", "phone_screen", "interview", "offer", "rejected"] as const;
 type Status = (typeof STATUSES)[number];
@@ -81,11 +83,8 @@ export default function Applications() {
     setDirty(true);
   };
 
-  const dl = (text: string, name: string) => {
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = name; a.click();
-  };
+  const baseName = () =>
+    `${(openApp?.jobTitle || openApp?.companyName || "document").replace(/\s+/g, "_")}_${tab === "resume" ? "Resume" : "Cover_Letter"}`;
 
   const saveDocs = async () => {
     if (openId == null) return;
@@ -245,9 +244,12 @@ export default function Applications() {
                     placeholder={tab === "resume" ? "Your tailored resume. Edit freely, or ask the assistant to improve it." : "Your cover letter. Edit freely, or ask the assistant to improve it."}
                   />
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => { navigator.clipboard.writeText(currentDoc); toast.success("Copied"); }} className="btn-ghost h-8 px-3 text-xs"><Copy className="w-3.5 h-3.5" /> Copy</button>
-                    <button onClick={() => dl(currentDoc, `${(openApp.jobTitle || "document").replace(/\s+/g, "_")}_${tab === "resume" ? "Resume" : "Cover_Letter"}.txt`)} className="btn-ghost h-8 px-3 text-xs"><Download className="w-3.5 h-3.5" /> Download</button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-slate-400 mr-1">Download:</span>
+                    <button onClick={() => downloadDocx(currentDoc, tab === "resume" ? "resume" : "cover", baseName())} className="btn-ghost h-8 px-3 text-xs"><FileType className="w-3.5 h-3.5" /> Word</button>
+                    <button onClick={() => { if (!printPdf(currentDoc, tab === "resume" ? "resume" : "cover", baseName())) toast.error("Allow pop-ups to export PDF"); }} className="btn-ghost h-8 px-3 text-xs"><FileDown className="w-3.5 h-3.5" /> PDF</button>
+                    <button onClick={() => downloadTxt(currentDoc, baseName())} className="btn-ghost h-8 px-3 text-xs"><FileText className="w-3.5 h-3.5" /> Text</button>
+                    <button onClick={async () => { (await copyText(currentDoc)) ? toast.success("Copied") : toast.error("Copy failed"); }} className="btn-ghost h-8 px-3 text-xs"><Copy className="w-3.5 h-3.5" /> Copy</button>
                     {openApp.jobUrl && <a href={openApp.jobUrl} target="_blank" rel="noreferrer" className="btn-ghost h-8 px-3 text-xs"><ExternalLink className="w-3.5 h-3.5" /> Posting</a>}
                     <button
                       onClick={async () => { if (dirty) await saveDocs(); await updateStatus.mutateAsync({ id: openApp.id, status: "ready" as never }); await utils.applications.list.invalidate(); toast.success("Marked ready to apply"); }}

@@ -4,12 +4,14 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   Sparkles, Lock, Wand2, PenTool, BarChart3, MessageSquare,
-  Target, GraduationCap, Copy, Download, Check, Send, Loader2, Bot,
+  Target, GraduationCap, Copy, Check, Send, Loader2, Bot,
+  FileType, FileDown, FileText, Save,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Assistant } from "@/components/Assistant";
 import { getWorkingSession, setWorkingSession } from "@/lib/workingSession";
 import { useEffect } from "react";
+import { downloadTxt, downloadDocx, printPdf } from "@/lib/exportDoc";
 
 type Mode = "assistant" | "tailor" | "cover" | "ats" | "chat" | "skillgap";
 
@@ -111,16 +113,8 @@ export default function Optimizer() {
     toast.success("Copied");
   };
 
-  const download = () => {
-    const name = (profile?.fullName || "document").replace(/\s+/g, "_");
-    const label = mode === "cover" ? "Cover_Letter" : "Resume";
-    const blob = new Blob([result], { type: "text/plain;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name}_${label}.txt`;
-    a.click();
-    toast.success("Downloaded");
-  };
+  const exportName = () => `${(profile?.fullName || "document").replace(/\s+/g, "_")}_${mode === "cover" ? "Cover_Letter" : "Resume"}`;
+  const exportKind = () => (mode === "cover" ? "cover" : "resume") as "cover" | "resume";
 
   const saveVersion = async () => {
     if (!profile) return;
@@ -177,8 +171,8 @@ export default function Optimizer() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="page-title">AI Optimizer</h1>
-      <p className="page-subtitle mb-5">Tailor resumes, write letters, score ATS fit, plan skills, and get coaching.</p>
+      <h1 className="page-title">Scratchpad</h1>
+      <p className="page-subtitle mb-5">A free space to tailor resumes, draft letters, check ATS fit, and experiment. Paste any job, no application needed. To track and refine per job, use Applications.</p>
 
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
         {TOOLS.map((t) => {
@@ -221,11 +215,13 @@ export default function Optimizer() {
         <div className="card p-5 mt-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm text-slate-800">Result</h3>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 flex-wrap">
               <button onClick={copyResult} className="btn-ghost h-9 px-3">{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copy</button>
               {(mode === "tailor" || mode === "cover") && <>
-                <button onClick={download} className="btn-ghost h-9 px-3"><Download className="w-4 h-4" /> Download</button>
-                <button onClick={saveVersion} className="btn-ghost h-9 px-3">Save</button>
+                <button onClick={() => downloadDocx(result, exportKind(), exportName())} className="btn-ghost h-9 px-3"><FileType className="w-4 h-4" /> Word</button>
+                <button onClick={() => { if (!printPdf(result, exportKind(), exportName())) toast.error("Allow pop-ups to export PDF"); }} className="btn-ghost h-9 px-3"><FileDown className="w-4 h-4" /> PDF</button>
+                <button onClick={() => downloadTxt(result, exportName())} className="btn-ghost h-9 px-3"><FileText className="w-4 h-4" /> Text</button>
+                <button onClick={saveVersion} className="btn-ghost h-9 px-3"><Save className="w-4 h-4" /> Save</button>
                 <button onClick={logApplication} className="btn-ghost h-9 px-3"><Send className="w-4 h-4" /> Log</button>
               </>}
             </div>
