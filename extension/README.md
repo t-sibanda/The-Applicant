@@ -1,28 +1,39 @@
-# The Applicant — Autofill Extension
+# The Applicant — Fit Check (browser extension)
 
-A Manifest V3 browser extension that fills job application forms with your saved
-profile and AI-tailored materials. **It only fills fields when you click, and it
-never submits** — you review and submit yourself. This keeps within job sites'
-terms of service and avoids the account-ban risk of headless auto-apply.
+A read-only companion that checks your fit for a job you are viewing on
+LinkedIn or a careers page, using your saved profile in The Applicant.
+
+## What it does
+
+- Adds a floating "Check my fit" button on job postings.
+- On your click, it reads the job text already visible on the page and asks The
+  Applicant to score your fit against your saved resume and profile.
+- Shows your match score, the keywords you already cover, and what is worth
+  adding, plus a link to tailor your documents in the app.
+
+## What it does not do
+
+- It never edits the page, never messages anyone, and never applies for you.
+- It does not read or change your LinkedIn account or scrape profiles.
+- It only acts when you click, and only reads what is on screen.
+
+This keeps it within LinkedIn's and other sites' terms of use.
 
 ## Install (developer mode)
-1. Open `chrome://extensions` (or `edge://extensions`).
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select this `extension/` folder.
 
-## Use
-1. Sign in to The Applicant in a normal browser tab.
-2. Click the extension icon → enter your app URL → **Connect to my account**
-   (it uses your signed-in session cookie; nothing is stored server-side).
-3. On any application page, open the popup and click **Fill this page**.
-4. **Review every field**, paste your tailored resume/cover letter (buttons copy
-   them), then submit the form yourself.
+1. Open your app in the browser and sign in to The Applicant.
+2. Go to `chrome://extensions` (or your browser's extensions page).
+3. Turn on Developer mode.
+4. Click "Load unpacked" and select this `extension/` folder.
+5. Click the extension icon and paste your app URL (for example your Render
+   URL). Save.
+6. Open a job on LinkedIn (or Greenhouse/Lever/Ashby/Indeed) and click
+   "Check my fit".
 
-## How it works / limits
-- The popup fetches a read-only payload from `/api/trpc/extension.payload`
-  (contact fields + latest tailored resume/cover letter) using your session.
-- The content script matches common field names (name, email, phone, links) and
-  fills them. ATS forms vary, so it fills what it can confidently identify —
-  always review.
-- No auto-submit, no background automation, no scraping. Human-in-the-loop by
-  design.
+## Notes
+
+- You must be signed in to The Applicant in the same browser; the extension
+  uses your existing session cookie over HTTPS.
+- The app already allows this via CORS on `/api/trpc/*` with credentials.
+- Works in Chrome/Edge (Manifest V3). Firefox support needs a small manifest
+  tweak (background/service worker differences).

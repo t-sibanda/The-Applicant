@@ -1,13 +1,33 @@
 {
   "manifest_version": 3,
-  "name": "The Applicant — Autofill",
+  "name": "The Applicant — Fit Check",
   "version": "1.0.0",
-  "description": "Fill job application forms with your saved profile and AI-tailored materials. You review and submit — never automatic.",
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["<all_urls>"],
+  "description": "Check your fit for a job you are viewing on LinkedIn or any careers page, using your saved profile in The Applicant. Read-only: it never changes the page or auto-applies.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.greenhouse.io/*",
+    "https://*.lever.co/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.indeed.com/*"
+  ],
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "The Applicant Autofill"
+    "default_title": "The Applicant — Fit Check",
+    "default_popup": "popup.html"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.linkedin.com/jobs/*",
+        "https://*.greenhouse.io/*",
+        "https://*.lever.co/*",
+        "https://*.ashbyhq.com/*",
+        "https://*.indeed.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
   "icons": {}
 }

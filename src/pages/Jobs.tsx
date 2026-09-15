@@ -477,6 +477,7 @@ export default function Jobs() {
                   </div>
                   <p className="text-[11px] text-slate-400">
                     We do not read or change your LinkedIn account (their terms do not allow it). You stay in control: we analyze what you paste and draft messages you send yourself.
+                    For a fit check right on the posting, install the browser add-on (see the extension folder in the app repo), then click "Check my fit" while viewing a job.
                   </p>
 
                   {/* Networking outreach draft (copy into LinkedIn manually) */}
