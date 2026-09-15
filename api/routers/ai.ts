@@ -6,6 +6,8 @@ import { learningItems, resumeProfiles } from "../db/schema";
 import { chatCompletion, parseJsonFromAI } from "../services/ai";
 import { analyzeAts } from "../services/ats";
 import { requireAIEntitlement } from "../lib/entitlements";
+import { getGenerationContext, contactBlock, targetingNote } from "../services/generation-context";
+import { TRPCError } from "@trpc/server";
 import {
   parseJobMessages,
   tailorResumeMessages,
@@ -62,21 +64,24 @@ export const aiRouter = router({
   tailorResume: authedProcedure
     .input(
       z.object({
-        baseResume: z.string().min(1),
-        voiceProfile: z.string().min(1),
         jobDescription: z.string().min(1),
-        contact: z.string().optional(),
         companyStyle: styleEnum,
       }),
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
+      // Pull resume, structured voice, and targeting from saved data so every
+      // page produces the same, voice-accurate result without passing strings.
+      const gc = await getGenerationContext(ctx.user.id);
+      if (!gc.hasResume)
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Add your resume first." });
       return chatCompletion(
         tailorResumeMessages({
-          baseResume: input.baseResume,
-          voiceProfile: input.voiceProfile,
+          baseResume: gc.baseResume,
+          voiceProfile: gc.voiceInstruction,
           jobDescription: input.jobDescription,
-          contact: input.contact,
+          contact: contactBlock(gc),
+          targeting: targetingNote(gc),
           style: input.companyStyle as CompanyStyle | undefined,
         }),
       );
@@ -85,8 +90,6 @@ export const aiRouter = router({
   generateCoverLetter: authedProcedure
     .input(
       z.object({
-        baseResume: z.string().min(1),
-        voiceProfile: z.string().min(1),
         jobDescription: z.string().min(1),
         companyName: z.string().min(1),
         jobTitle: z.string().min(1),
@@ -95,10 +98,13 @@ export const aiRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
+      const gc = await getGenerationContext(ctx.user.id);
+      if (!gc.hasResume)
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Add your resume first." });
       return chatCompletion(
         coverLetterMessages({
-          baseResume: input.baseResume,
-          voiceProfile: input.voiceProfile,
+          baseResume: gc.baseResume,
+          voiceProfile: gc.voiceInstruction,
           jobDescription: input.jobDescription,
           companyName: input.companyName,
           jobTitle: input.jobTitle,
@@ -110,17 +116,22 @@ export const aiRouter = router({
   atsScore: authedProcedure
     .input(
       z.object({
-        resumeText: z.string().min(1),
         jobDescription: z.string().min(1),
         companyName: z.string().max(200).optional(),
+        // Optional override; defaults to the saved base resume when omitted.
+        resumeText: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       await requireAIEntitlement(ctx.user);
+      const gc = await getGenerationContext(ctx.user.id);
+      const resumeText = input.resumeText?.trim() || gc.baseResume;
+      if (!resumeText)
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Add your resume first." });
 
       // 1) Deterministic analysis (keyword coverage, format, seniority, hard reqs).
       // The company name is passed so it is not counted as a required keyword.
-      const det = analyzeAts(input.resumeText, input.jobDescription, input.companyName);
+      const det = analyzeAts(resumeText, input.jobDescription, input.companyName);
 
       // 2) AI semantic pass: judge how well the experience actually matches
       // beyond literal keywords (0-100), plus prioritized fixes.
@@ -134,7 +145,7 @@ export const aiRouter = router({
           role: "user" as const,
           content: `Assess semantic match. Consider transferable skills, impact, and domain fit.
 RESUME:
-${input.resumeText.slice(0, 6000)}
+${resumeText.slice(0, 6000)}
 
 JOB:
 ${input.jobDescription.slice(0, 4000)}
@@ -156,7 +167,7 @@ Return ONLY valid JSON.`,
 
       // Hard-requirement gap flags.
       const reqGaps: string[] = [];
-      const resumeLower = input.resumeText.toLowerCase();
+      const resumeLower = resumeText.toLowerCase();
       if (det.hardRequirements.yearsRequired) {
         reqGaps.push(`Role asks for ~${det.hardRequirements.yearsRequired}+ years — ensure your experience makes this obvious.`);
       }

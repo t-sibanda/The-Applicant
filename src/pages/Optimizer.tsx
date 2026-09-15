@@ -77,19 +77,19 @@ export default function Optimizer() {
     }
     if (!profile?.baseResumeText) return toast.error("Add your resume first (Resume page)");
     if (!jobDescription.trim()) return toast.error("Paste a job description");
-    const voice = profile.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
 
     try {
       if (mode === "tailor") {
-        const res = await tailorMut.mutateAsync({ baseResume: profile.baseResumeText, voiceProfile: voice, jobDescription });
+        // Voice and resume are read server-side from your saved profile.
+        const res = await tailorMut.mutateAsync({ jobDescription });
         if (res.success && res.content) { setResult(res.content); toast.success("Resume tailored"); }
         else toast.error(res.error ?? "Failed");
       } else if (mode === "cover") {
-        const res = await coverMut.mutateAsync({ baseResume: profile.baseResumeText, voiceProfile: voice, jobDescription, companyName: companyName || "the company", jobTitle: jobTitle || "this role" });
+        const res = await coverMut.mutateAsync({ jobDescription, companyName: companyName || "the company", jobTitle: jobTitle || "this role" });
         if (res.success && res.content) { setResult(res.content); toast.success("Cover letter ready"); }
         else toast.error(res.error ?? "Failed");
       } else if (mode === "ats") {
-        const res = await atsMut.mutateAsync({ resumeText: profile.baseResumeText, jobDescription, companyName: companyName || undefined });
+        const res = await atsMut.mutateAsync({ jobDescription, companyName: companyName || undefined });
         if (res.success && res.content) { try { setAts(JSON.parse(res.content)); } catch { setResult(res.content); } }
         else toast.error(res.error ?? "Failed");
       } else if (mode === "skillgap") {

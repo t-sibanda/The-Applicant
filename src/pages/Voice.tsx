@@ -57,7 +57,7 @@ function TagList({ items, onChange, suggestions }: { items: string[]; onChange: 
   );
 }
 
-export default function Voice() {
+export default function Voice({ embedded }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   // Gate on the server's effective plan (tier + admin grants).
   const access = trpc.auth.myAccess.useQuery(undefined, { enabled: !!user });
@@ -110,9 +110,9 @@ export default function Voice() {
 
   if (user && !isPaid) {
     return (
-      <div className="max-w-2xl">
-        <h1 className="page-title">Voice Studio</h1>
-        <p className="page-subtitle mb-6">Show us how you write, and we'll keep that voice in everything.</p>
+      <div className={embedded ? "" : "max-w-2xl"}>
+        {!embedded && <h1 className="page-title">Voice Studio</h1>}
+        {!embedded && <p className="page-subtitle mb-6">Show us how you write, and we'll keep that voice in everything.</p>}
         <div className="card p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-brand-light flex items-center justify-center mx-auto mb-4"><Mic className="w-7 h-7 text-brand" /></div>
           <h2 className="text-lg font-bold text-slate-800">Your voice is your edge</h2>
@@ -124,9 +124,9 @@ export default function Voice() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="page-title">Voice Studio</h1>
-      <p className="page-subtitle mb-5">Tell us who you are and show us how you write. Everything then sounds and feels like you.</p>
+    <div className={embedded ? "" : "max-w-3xl"}>
+      {!embedded && <h1 className="page-title">Voice Studio</h1>}
+      {!embedded && <p className="page-subtitle mb-5">Tell us who you are and show us how you write. Everything then sounds and feels like you.</p>}
 
       {/* Who is X? — self-discovery persona */}
       <PersonaStudio />

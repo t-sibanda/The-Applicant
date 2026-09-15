@@ -55,12 +55,13 @@ export function tailorResumeMessages(args: {
   jobDescription: string;
   style?: CompanyStyle;
   contact?: string;
+  targeting?: string;
 }): ChatMessage[] {
   return [
     {
       role: "system",
       content:
-        "You are an expert resume writer. Output ONLY the complete, ATS-friendly resume as plain text. No JSON, no code fences, no commentary.",
+        "You are an expert resume writer who maximizes ATS pass-through without fabricating. Output ONLY the complete, ATS-friendly resume as plain text. No JSON, no code fences, no commentary, no em dashes.",
     },
     {
       role: "user",
@@ -68,17 +69,23 @@ export function tailorResumeMessages(args: {
         args.style,
       )}
 
-${args.contact ? `CONTACT:\n${args.contact}\n` : ""}
-VOICE PROFILE (write in this style):
+${args.contact ? `CONTACT (put at the very top):\n${args.contact}\n` : ""}${args.targeting ? `TARGETING: ${args.targeting}\n\n` : ""}VOICE PROFILE (write in this style):
 ${args.voiceProfile}
 
-BASE RESUME:
+BASE RESUME (the only source of facts):
 ${args.baseResume}
 
 TARGET JOB DESCRIPTION:
 ${args.jobDescription}
 
-Rules: use only real information from the base resume (never fabricate); weave in job keywords naturally; quantify where possible; clear CAPS section headers; no tables/columns/graphics; include all contact info at top. Output plain text only.`,
+Rules:
+- Use ONLY real information from the base resume. Never invent employers, titles, dates, degrees, or metrics.
+- Mirror the exact terminology from the job description for skills and tools the applicant genuinely has, so ATS keyword matching succeeds.
+- Lead each role with impact; keep existing numbers, do not manufacture new ones.
+- Reorder and reword to foreground the experience most relevant to this job.
+- Use clear ALL-CAPS section headers (SUMMARY, EXPERIENCE, SKILLS, EDUCATION).
+- Single column, plain text. No tables, columns, graphics, or special characters.
+- Keep it truthful and tight. Output plain text only.`,
     },
   ];
 }
@@ -95,15 +102,15 @@ export function coverLetterMessages(args: {
     {
       role: "system",
       content:
-        "You write personalized, compelling cover letters in the applicant's authentic voice.",
+        "You write personalized, compelling cover letters in the applicant's authentic voice. No em dashes. Never invent facts or metrics.",
     },
     {
       role: "user",
       content: `Write a 250-350 word cover letter.${styleInstruction(args.style)}
-APPLICANT VOICE:
+APPLICANT VOICE (write in this style):
 ${args.voiceProfile}
 
-APPLICANT BACKGROUND:
+APPLICANT BACKGROUND (the only source of facts):
 ${args.baseResume}
 
 COMPANY: ${args.companyName}
@@ -112,7 +119,7 @@ ROLE: ${args.jobTitle}
 JOB DESCRIPTION:
 ${args.jobDescription}
 
-Open with a strong hook, highlight 2-3 relevant achievements, show company knowledge, close with a clear call to action. Avoid generic templates.`,
+Open with a specific hook tied to this company or role, highlight 2-3 real achievements from the background that map to the job's needs, show genuine understanding of the role, and close with a clear call to action. Use only true details. Avoid generic templates and filler.`,
     },
   ];
 }

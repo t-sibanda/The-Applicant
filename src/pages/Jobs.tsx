@@ -496,9 +496,9 @@ export default function Jobs() {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={curateFromScan} disabled={prepareFromPaste.isPending} className="btn-primary">
-                  {prepareFromPaste.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting…</> : <><Wand2 className="w-4 h-4" /> Curate documents</>}
+                  {prepareFromPaste.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting…</> : <><Wand2 className="w-4 h-4" /> Tailor & add to Applications</>}
                 </button>
-                <Link to="/optimizer" className="btn-ghost"><Bot className="w-4 h-4" /> Open in AI Optimizer</Link>
+                <Link to="/applications" className="btn-ghost"><Send className="w-4 h-4" /> Go to Applications</Link>
                 {scan.url && <a href={scan.url} target="_blank" rel="noreferrer" className="text-xs text-brand font-semibold inline-flex items-center gap-1">View posting <ExternalLink className="w-3 h-3" /></a>}
               </div>
 

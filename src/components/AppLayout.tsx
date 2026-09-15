@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   User,
   Briefcase,
-  FileText,
   Bot,
   Send,
   CreditCard,
@@ -13,7 +12,6 @@ import {
   LifeBuoy,
   Sparkles,
   GraduationCap,
-  Mic,
   Play,
   Clapperboard,
   Eraser,
@@ -27,46 +25,26 @@ import { toast } from "sonner";
 type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean };
 type NavSection = { label: string; hint: string; items: NavItem[] };
 
-// The nav mirrors the job-hunt journey as three stages:
-//   1. PREPARE — who you are (profile, voice, resume)
-//   2. APPLY   — find roles and tailor applications
-//   3. ADVANCE — track outcomes and grow
-// Section order is deliberate; the flow is the product.
+// Four steps, in order. The flow is the product:
+//   Home -> Your Profile (set up once) -> Find & Apply -> Applications.
+// Everything else lives quietly under Resources.
 const NAV_SECTIONS: NavSection[] = [
   {
     label: "",
     hint: "",
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard, end: true }],
-  },
-  {
-    label: "Prepare",
-    hint: "Set up once",
     items: [
-      { to: "/profiles", label: "Profile & Portfolio", icon: User },
-      { to: "/voice", label: "Voice Studio", icon: Mic },
-      { to: "/resume", label: "Resume", icon: FileText },
-    ],
-  },
-  {
-    label: "Apply",
-    hint: "Repeat per role",
-    items: [
-      { to: "/jobs", label: "Jobs", icon: Briefcase },
-      { to: "/optimizer", label: "AI Optimizer", icon: Bot },
-    ],
-  },
-  {
-    label: "Advance",
-    hint: "Track & grow",
-    items: [
+      { to: "/", label: "Home", icon: LayoutDashboard, end: true },
+      { to: "/setup", label: "Your Profile", icon: User },
+      { to: "/jobs", label: "Find & Apply", icon: Briefcase },
       { to: "/applications", label: "Applications", icon: Send },
-      { to: "/growth", label: "Career & Learning", icon: GraduationCap },
     ],
   },
   {
-    label: "Resources",
+    label: "More",
     hint: "",
     items: [
+      { to: "/optimizer", label: "AI Optimizer", icon: Bot },
+      { to: "/growth", label: "Career & Learning", icon: GraduationCap },
       { to: "/story", label: "Watch the Story", icon: Clapperboard },
       { to: "/demo", label: "Product Demo", icon: Play },
       { to: "/support", label: "Help & Support", icon: LifeBuoy },

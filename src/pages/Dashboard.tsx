@@ -101,24 +101,24 @@ export default function Dashboard() {
 
   // The single best next action per stage, derived from live state.
   const prepareAction = !hasActiveProfile
-    ? { label: "Set up your profile", to: "/profiles" }
+    ? { label: "Set up your profile", to: "/setup" }
     : !hasResume
-      ? { label: "Add your resume", to: "/resume" }
+      ? { label: "Add your resume", to: "/setup" }
       : !hasVoice
-        ? { label: "Teach it your voice", to: "/voice" }
-        : { label: "Review profile", to: "/profiles" };
+        ? { label: "Teach it your voice", to: "/setup" }
+        : { label: "Review profile", to: "/setup" };
 
   const applyAction = totalJobs === 0
     ? { label: "Find jobs", to: "/jobs" }
     : totalApps === 0
-      ? { label: "Tailor your first application", to: "/optimizer" }
-      : { label: "Tailor the next one", to: "/jobs" };
+      ? { label: "Add your first job", to: "/jobs" }
+      : { label: "Find the next role", to: "/jobs" };
 
   const advanceAction = interviews > 0
     ? { label: "Prep for interviews", to: "/applications" }
-    : learningCount === 0
-      ? { label: "Save your first resource", to: "/growth" }
-      : { label: "Build your career plan", to: "/growth" };
+    : totalApps > 0
+      ? { label: "Refine your applications", to: "/applications" }
+      : { label: "Track applications", to: "/applications" };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -135,7 +135,7 @@ export default function Dashboard() {
             {user?.name ? <>{user.name.split(" ")[0]}, let's land<br />your next role.</> : "Let's land your next role."}
           </h1>
           <p className="text-white/60 text-sm md:text-base mt-4 max-w-lg leading-relaxed">
-            One journey, three stages: prepare your materials, apply with tailored documents, then track outcomes and grow.
+            Set up your profile once, add jobs and get a real match, then tailor and track every application in one place.
           </p>
         </div>
       </div>
@@ -145,40 +145,40 @@ export default function Dashboard() {
       <div className="grid md:grid-cols-3 gap-3 mb-6">
         <StageCard
           step={1}
-          title="Prepare"
-          subtitle="Who you are. Set up once, reuse everywhere."
+          title="Set up"
+          subtitle="Who you are. Fill this in once."
           color="#c2410c"
           delay={1}
           items={[
-            { label: "Active profile", done: hasActiveProfile, to: "/profiles" },
-            { label: "Base resume", done: hasResume, to: "/resume" },
-            { label: "Voice profile", done: hasVoice, to: "/voice" },
+            { label: "Active profile", done: hasActiveProfile, to: "/setup" },
+            { label: "Base resume", done: hasResume, to: "/setup" },
+            { label: "Voice profile", done: hasVoice, to: "/setup" },
           ]}
           action={prepareAction}
         />
         <StageCard
           step={2}
-          title="Apply"
-          subtitle="Find roles, tailor documents, apply."
+          title="Find & apply"
+          subtitle="Add jobs, get a match, tailor documents."
           color="#1d4ed8"
           delay={2}
           items={[
             { label: "Jobs found", done: totalJobs > 0, to: "/jobs" },
             { label: "Applications started", done: totalApps > 0, to: "/applications" },
-            { label: "Documents tailored", done: totalApps > 0, to: "/optimizer" },
+            { label: "Documents tailored", done: totalApps > 0, to: "/applications" },
           ]}
           action={applyAction}
         />
         <StageCard
           step={3}
-          title="Advance"
-          subtitle="Track outcomes, prep interviews, grow skills."
+          title="Track"
+          subtitle="Refine documents, follow outcomes, land interviews."
           color="#047857"
           delay={3}
           items={[
+            { label: "Applications logged", done: totalApps > 0, to: "/applications" },
             { label: "Interviews landed", done: interviews > 0, to: "/applications" },
             { label: "Resources saved", done: learningCount > 0, to: "/growth" },
-            { label: "Career plan", done: false, to: "/growth" },
           ]}
           action={advanceAction}
         />

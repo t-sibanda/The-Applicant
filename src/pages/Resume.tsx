@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Save, Mic, Loader2, FileText, Eye, Download, X, Linkedin, Wand2, ArrowUpToLine, Trash2 } from "lucide-react";
 
-export default function Resume() {
+export default function Resume({ embedded }: { embedded?: boolean } = {}) {
   const utils = trpc.useUtils();
   const profiles = trpc.resume.listProfiles.useQuery();
   const create = trpc.resume.createProfile.useMutation();
@@ -115,9 +115,9 @@ export default function Resume() {
   };
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="page-title">Resume</h1>
-      <p className="page-subtitle mb-5">Your base resume. Everything else gets tailored from this.</p>
+    <div className={embedded ? "" : "max-w-3xl"}>
+      {!embedded && <h1 className="page-title">Resume</h1>}
+      {!embedded && <p className="page-subtitle mb-5">Your base resume. Everything else gets tailored from this.</p>}
 
       <div className="card p-5 space-y-4">
         <div className="grid sm:grid-cols-3 gap-3">
