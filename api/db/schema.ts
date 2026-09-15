@@ -355,7 +355,34 @@ export const portfolios = pgTable("portfolios", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// ─── learning_items (curated links → training material / tips) ──
+// ─── learning_topics (subjects the user is building mastery in) ──
+// A topic groups saved material, tracks a mastery goal, and can hold an AI
+// overview plus a generated short course. Examples: "Data centers",
+// "Calculus", "AWS certification", "Networking".
+export const learningTopics = pgTable(
+  "learning_topics",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    kind: varchar("kind", { length: 30 }).notNull().default("topic"), // topic | certification | person | skill
+    goal: text("goal"), // what mastering this should let the user do
+    // AI-maintained overview and a short course (JSON: modules[]).
+    overview: text("overview"),
+    keyFacts: jsonb("key_facts"), // string[] distilled key points
+    course: jsonb("course"), // { modules: [{ title, summary, tasks: string[] }] }
+    latest: jsonb("latest"), // { updatedAt, items: [{ title, note, url? }] }
+    progress: integer("progress").notNull().default(0), // 0-100 self-tracked
+    pinned: boolean("pinned").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ userIdx: index("learning_topics_user_idx").on(t.userId) }),
+);
+
+// ─── learning_items (curated links / notes / screenshots → notes) ──
 export const learningItems = pgTable(
   "learning_items",
   {
@@ -363,9 +390,17 @@ export const learningItems = pgTable(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Optional grouping into a topic the user is building.
+    topicId: integer("topic_id").references(() => learningTopics.id, {
+      onDelete: "set null",
+    }),
     url: text("url"), // null for skill-gap generated items (no source link)
     title: varchar("title", { length: 300 }),
     category: varchar("category", { length: 40 }).notNull().default("tip"), // tip | resume | career | industry
+    // Raw pasted text or text extracted from a screenshot/description.
+    content: text("content"),
+    // Optional stored image reference (data URL or storage key) for screenshots.
+    imageRef: text("image_ref"),
     summary: text("summary"),
     takeaways: jsonb("takeaways"), // string[] actionable points
     // Skills this resource builds (string[]). On completion they merge into
@@ -400,6 +435,7 @@ export const featureGrants = pgTable(
 export type User = typeof users.$inferSelect;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type LearningItem = typeof learningItems.$inferSelect;
+export type LearningTopic = typeof learningTopics.$inferSelect;
 export type FeatureGrant = typeof featureGrants.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;

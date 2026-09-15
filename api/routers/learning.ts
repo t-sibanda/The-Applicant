@@ -2,69 +2,94 @@ import { z } from "zod";
 import { and, eq, desc } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { learningItems, resumeProfiles } from "../db/schema";
+import { learningItems, learningTopics, resumeProfiles } from "../db/schema";
 import { chatCompletion, parseJsonFromAI } from "../services/ai";
 import { hasFeature, requireAIEntitlement } from "../lib/entitlements";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { TRPCError } from "@trpc/server";
 
+async function ownTopic(userId: number, topicId: number) {
+  const rows = await getDb()
+    .select()
+    .from(learningTopics)
+    .where(and(eq(learningTopics.id, topicId), eq(learningTopics.userId, userId)))
+    .limit(1);
+  return rows.at(0) ?? null;
+}
+
 export const learningRouter = router({
   list: authedProcedure
-    .input(z.object({ category: z.string().optional() }).optional())
+    .input(z.object({ category: z.string().optional(), topicId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const rows = await getDb()
         .select()
         .from(learningItems)
         .where(eq(learningItems.userId, ctx.user.id))
         .orderBy(desc(learningItems.createdAt));
-      return input?.category && input.category !== "all"
-        ? rows.filter((r) => r.category === input.category)
-        : rows;
+      let out = rows;
+      if (input?.category && input.category !== "all") out = out.filter((r) => r.category === input.category);
+      if (input?.topicId != null) out = out.filter((r) => r.topicId === input.topicId);
+      return out;
     }),
 
-  // Add a link and let AI summarize it into actionable takeaways.
+  // Add material: a link, pasted text, or text pulled from a screenshot.
+  // The AI reviews whatever content it can access and saves a summary,
+  // takeaways, and skill tags. Can be filed under a topic.
   add: authedProcedure
     .input(
       z.object({
-        url: z.string().url(),
+        url: z.string().url().optional(),
         title: z.string().max(300).optional(),
-        note: z.string().max(2000).optional(),
+        note: z.string().max(4000).optional(),
+        // Pasted text, or text the client extracted from a screenshot/image.
+        content: z.string().max(20000).optional(),
+        imageRef: z.string().max(400).optional(),
+        topicId: z.number().optional(),
         category: z.enum(["tip", "resume", "career", "industry"]).default("tip"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!input.url && !input.content && !input.note) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Add a link, paste text, or attach a screenshot's text." });
+      }
+      // If filed under a topic, verify ownership.
+      if (input.topicId && !(await ownTopic(ctx.user.id, input.topicId))) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Topic not found." });
+      }
+
       let summary: string | null = null;
       let takeaways: string[] = [];
       let skillTags: string[] = [];
 
-      // Best-effort AI enrichment. Grant-aware: honors tier AND admin grants.
       const canAI = await hasFeature(ctx.user, "aiOptimizer");
       if (canAI) {
-        // Fetch the actual page so the summary and takeaways come from the
-        // real content. If the page is unreadable (JS-only, blocked), fall
-        // back to the title and say so rather than guessing.
-        const pageText = await fetchJobText(input.url);
-        const source = pageText
-          ? `PAGE CONTENT (excerpt):\n${pageText.slice(0, 6000)}`
-          : "(The page content could not be fetched; base this only on the URL, title, and note, and keep takeaways general.)";
+        // Prefer pasted content; otherwise fetch the page. Screenshots are
+        // passed as extracted text in `content` from the client.
+        let sourceText = input.content?.trim() ?? "";
+        if (sourceText.length < 40 && input.url) {
+          sourceText = await fetchJobText(input.url);
+        }
+        const source = sourceText
+          ? `CONTENT (excerpt):\n${sourceText.slice(0, 6000)}`
+          : "(No readable content; base this only on the title/note and keep it general.)";
 
         const res = await chatCompletion(
           [
             {
               role: "system",
               content:
-                "You turn career/industry content into concise, actionable learning notes for a job seeker. Only state what the provided content supports; never invent claims. Return ONLY valid JSON.",
+                "You turn saved learning material (articles, posts, screenshots, notes) into concise, accurate study notes. Only state what the content supports; never invent claims. Return ONLY valid JSON.",
             },
             {
               role: "user",
-              content: `A user saved this ${input.category} resource:
-URL: ${input.url}
+              content: `A user saved this ${input.category} material:
+URL: ${input.url ?? "(none)"}
 Title/context: ${input.title ?? "(none)"}
 Their note: ${input.note ?? "(none)"}
 ${source}
 
 Produce:
-{ "summary": "1-2 sentence summary", "takeaways": ["3-5 concrete tips the user can apply to their resume/profile/career"], "skillTags": ["0-4 specific skills this resource teaches, e.g. \\"Kubernetes\\", \\"System design\\" — empty if none"] }
+{ "summary": "1-2 sentence summary of what this teaches", "takeaways": ["3-5 concrete points worth remembering"], "skillTags": ["0-5 specific skills/subjects this covers, e.g. \\"Kubernetes\\", \\"Calculus\\" — empty if none"] }
 Return ONLY valid JSON.`,
             },
           ],
@@ -74,7 +99,7 @@ Return ONLY valid JSON.`,
           const parsed = parseJsonFromAI<{ summary: string; takeaways: string[]; skillTags?: string[] }>(res.content);
           summary = parsed?.summary ?? null;
           takeaways = parsed?.takeaways ?? [];
-          skillTags = (parsed?.skillTags ?? []).filter(Boolean).slice(0, 4);
+          skillTags = (parsed?.skillTags ?? []).filter(Boolean).slice(0, 5);
         }
       }
 
@@ -82,9 +107,12 @@ Return ONLY valid JSON.`,
         .insert(learningItems)
         .values({
           userId: ctx.user.id,
+          topicId: input.topicId,
           url: input.url,
-          title: input.title ?? input.url,
+          title: input.title ?? (input.url ?? "Note"),
           category: input.category,
+          content: input.content,
+          imageRef: input.imageRef,
           summary,
           takeaways,
           skillTags,
@@ -174,5 +202,141 @@ Return ONLY valid JSON.`,
     return parsed
       ? { success: true as const, digest: parsed }
       : { success: false as const, error: "Could not parse." };
+  }),
+
+  // ─── Topics: subjects the user is building mastery in ───
+
+  listTopics: authedProcedure.query(async ({ ctx }) => {
+    return getDb()
+      .select()
+      .from(learningTopics)
+      .where(eq(learningTopics.userId, ctx.user.id))
+      .orderBy(desc(learningTopics.pinned), desc(learningTopics.updatedAt));
+  }),
+
+  createTopic: authedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(160),
+        kind: z.enum(["topic", "certification", "person", "skill"]).default("topic"),
+        goal: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const rows = await getDb()
+        .insert(learningTopics)
+        .values({ userId: ctx.user.id, name: input.name, kind: input.kind, goal: input.goal })
+        .returning();
+      return rows[0];
+    }),
+
+  updateTopic: authedProcedure
+    .input(z.object({ id: z.number(), goal: z.string().max(2000).optional(), progress: z.number().min(0).max(100).optional(), pinned: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...patch } = input;
+      const rows = await getDb()
+        .update(learningTopics)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(and(eq(learningTopics.id, id), eq(learningTopics.userId, ctx.user.id)))
+        .returning();
+      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND" });
+      return rows[0];
+    }),
+
+  removeTopic: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const rows = await getDb()
+        .delete(learningTopics)
+        .where(and(eq(learningTopics.id, input.id), eq(learningTopics.userId, ctx.user.id)))
+        .returning();
+      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND" });
+      return { success: true };
+    }),
+
+  // Build (or rebuild) a topic's overview, key facts, and a short prep course,
+  // grounded in the material the user has saved under it.
+  buildTopic: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const db = getDb();
+      const topic = await ownTopic(ctx.user.id, input.id);
+      if (!topic) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const items = await db
+        .select()
+        .from(learningItems)
+        .where(and(eq(learningItems.userId, ctx.user.id), eq(learningItems.topicId, input.id)))
+        .orderBy(desc(learningItems.createdAt));
+
+      const material = items
+        .map((i) => `- ${i.title}: ${i.summary ?? ""} ${((i.takeaways as string[]) ?? []).join("; ")}`)
+        .join("\n")
+        .slice(0, 6000);
+
+      const res = await chatCompletion(
+        [
+          {
+            role: "system",
+            content:
+              "You are a rigorous tutor. Build an accurate overview and a short, practical course for a subject the learner wants to master. Ground it in the learner's saved material where given, and general knowledge otherwise. Be honest about what you are unsure of. Return ONLY valid JSON.",
+          },
+          {
+            role: "user",
+            content: `Subject: ${topic.name}
+Kind: ${topic.kind}
+Learner's goal: ${topic.goal ?? "(not specified)"}
+Saved material:
+${material || "(none yet)"}
+
+Return JSON:
+{
+  "overview": "3-5 sentence plain overview of the subject and why it matters for the goal",
+  "keyFacts": ["5-8 key facts or concepts to know"],
+  "course": { "modules": [ { "title": "", "summary": "1-2 sentences", "tasks": ["2-4 concrete practice tasks"] } ] }
+}
+Aim for 4-6 modules that build from basics to applied. Return ONLY valid JSON.`,
+          },
+        ],
+        { maxTokens: 2200, temperature: 0.3, json: true },
+      );
+      if (!res.success || !res.content) return { success: false as const, error: res.error };
+      const parsed = parseJsonFromAI<{ overview: string; keyFacts: string[]; course: unknown }>(res.content);
+      if (!parsed) return { success: false as const, error: "Could not build the course. Try again." };
+
+      const rows = await db
+        .update(learningTopics)
+        .set({ overview: parsed.overview, keyFacts: parsed.keyFacts, course: parsed.course, updatedAt: new Date() })
+        .where(eq(learningTopics.id, input.id))
+        .returning();
+      return { success: true as const, topic: rows[0] };
+    }),
+
+  // Suggest topics to study based on the user's target role and saved skills.
+  suggestTopics: authedProcedure.mutation(async ({ ctx }) => {
+    await requireAIEntitlement(ctx.user);
+    const db = getDb();
+    const rp = (await db.select().from(resumeProfiles).where(eq(resumeProfiles.userId, ctx.user.id)).limit(1)).at(0);
+    const existing = (await db.select().from(learningTopics).where(eq(learningTopics.userId, ctx.user.id))).map((t) => t.name);
+
+    const res = await chatCompletion(
+      [
+        { role: "system", content: "You suggest high-leverage learning topics and certifications for a job seeker. Return ONLY valid JSON." },
+        {
+          role: "user",
+          content: `Resume excerpt: ${(rp?.baseResumeText ?? "(none)").slice(0, 2000)}
+Already tracking: ${existing.join(", ") || "(none)"}
+
+Suggest topics worth mastering to become more competitive. Return JSON:
+{ "topics": [ { "name": "", "kind": "topic|certification|skill", "why": "one line" } ] }
+6-10 suggestions, skip ones already tracked. Return ONLY valid JSON.`,
+        },
+      ],
+      { maxTokens: 1000, temperature: 0.4, json: true },
+    );
+    if (!res.success || !res.content) return { success: false as const, error: res.error };
+    const parsed = parseJsonFromAI<{ topics: { name: string; kind: string; why: string }[] }>(res.content);
+    return parsed ? { success: true as const, topics: parsed.topics ?? [] } : { success: false as const, error: "Could not parse." };
   }),
 });
