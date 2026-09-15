@@ -1,0 +1,50 @@
+#ta-fit-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #ff6b35;
+  color: #fff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.25);
+}
+#ta-fit-fab:hover { filter: brightness(1.05); }
+
+#ta-fit-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 72px;
+  z-index: 2147483000;
+  width: 340px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.28);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  padding: 16px;
+}
+#ta-fit-panel h3 { font-size: 14px; margin: 0 0 2px; }
+#ta-fit-panel .ta-sub { font-size: 12px; color: #64748b; margin: 0 0 10px; }
+#ta-fit-panel .ta-score { font-size: 30px; font-weight: 800; }
+#ta-fit-panel .ta-chip {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px; margin: 2px 3px 0 0;
+}
+#ta-fit-panel .ta-have { background: #d1fae5; color: #047857; }
+#ta-fit-panel .ta-miss { background: #ffe4e6; color: #be123c; }
+#ta-fit-panel .ta-label { font-size: 11px; font-weight: 700; margin: 10px 0 3px; }
+#ta-fit-panel .ta-close { position: absolute; top: 10px; right: 12px; cursor: pointer; color: #94a3b8; border: 0; background: none; font-size: 16px; }
+#ta-fit-panel a { color: #ff6b35; font-weight: 600; font-size: 12px; }
+#ta-fit-panel .ta-err { font-size: 12px; color: #be123c; }
+#ta-fit-panel .ta-note { font-size: 11px; color: #94a3b8; margin-top: 10px; line-height: 1.4; }
