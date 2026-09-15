@@ -56,6 +56,8 @@ export function tailorResumeMessages(args: {
   style?: CompanyStyle;
   contact?: string;
   targeting?: string;
+  persona?: string;
+  emphasizeKeywords?: string[];
 }): ChatMessage[] {
   return [
     {
@@ -69,7 +71,8 @@ export function tailorResumeMessages(args: {
         args.style,
       )}
 
-${args.contact ? `CONTACT (put at the very top):\n${args.contact}\n` : ""}${args.targeting ? `TARGETING: ${args.targeting}\n\n` : ""}VOICE PROFILE (write in this style):
+${args.contact ? `CONTACT (put at the very top):\n${args.contact}\n` : ""}${args.targeting ? `TARGETING: ${args.targeting}\n` : ""}${args.persona ? `WHO THIS PERSON IS (reflect authentically, do not invent): ${args.persona}\n` : ""}
+VOICE PROFILE (write in this style):
 ${args.voiceProfile}
 
 BASE RESUME (the only source of facts):
@@ -77,7 +80,7 @@ ${args.baseResume}
 
 TARGET JOB DESCRIPTION:
 ${args.jobDescription}
-
+${args.emphasizeKeywords?.length ? `\nWORK IN THESE MISSING KEYWORDS where the base resume genuinely supports them (do NOT fabricate experience to fit them): ${args.emphasizeKeywords.join(", ")}\n` : ""}
 Rules:
 - Use ONLY real information from the base resume. Never invent employers, titles, dates, degrees, or metrics.
 - Mirror the exact terminology from the job description for skills and tools the applicant genuinely has, so ATS keyword matching succeeds.

@@ -67,3 +67,32 @@ describe("scoreRelevance", () => {
     expect(scoreRelevance(j, {})).toBe(60);
   });
 });
+
+describe("scoreRelevance — resume overlap", () => {
+  it("ranks a job the resume genuinely covers above one it does not", () => {
+    const resumeText =
+      "Senior Product Manager. Led roadmap, stakeholder management, analytics, SQL, experimentation, agile delivery for a SaaS platform.";
+    const strong = job({
+      title: "Product Manager",
+      description: "Own the roadmap, stakeholder management, analytics, SQL, experimentation, agile.",
+    });
+    const weak = job({
+      title: "Product Manager",
+      description: "Hardware manufacturing, CAD, mechanical tolerances, injection molding, CNC machining.",
+    });
+    const inputs = { targetRole: "Product Manager", resumeText };
+    const strongScore = scoreRelevance(strong, inputs);
+    const weakScore = scoreRelevance(weak, inputs);
+    expect(strongScore).toBeGreaterThan(weakScore);
+  });
+
+  it("is deterministic for the same inputs", () => {
+    const inputs = { targetRole: "Data Analyst", resumeText: "SQL, Python, Tableau, dashboards." };
+    const j = job({ title: "Data Analyst", description: "SQL, Python, Tableau, reporting dashboards." });
+    expect(scoreRelevance(j, inputs)).toBe(scoreRelevance(j, inputs));
+  });
+
+  it("still returns a neutral score with no targeting at all", () => {
+    expect(scoreRelevance(job({}), {})).toBe(60);
+  });
+});

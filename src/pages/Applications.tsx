@@ -35,6 +35,7 @@ export default function Applications() {
   const updateStatus = trpc.applications.updateStatus.useMutation();
   const updateDraft = trpc.applications.updateDraft.useMutation();
   const analyze = trpc.applications.analyze.useMutation();
+  const improve = trpc.applications.improveToTarget.useMutation();
   const editChat = trpc.applications.editChat.useMutation();
 
   const [showForm, setShowForm] = useState(false);
@@ -94,6 +95,8 @@ export default function Applications() {
     toast.success("Saved");
   };
 
+  const [trajectory, setTrajectory] = useState<{ pass: number; score: number }[] | null>(null);
+
   const runAnalyze = async () => {
     if (openId == null) return;
     // Persist current edits first so the analysis reflects what you see.
@@ -103,6 +106,24 @@ export default function Applications() {
     if (!res.ok) return toast.error(res.reason);
     setAts({ score: res.score, matched: res.matched, missing: res.missing, coverage: res.coverage, formatScore: res.formatScore, formatIssues: res.formatIssues });
     await utils.applications.list.invalidate();
+  };
+
+  // Iterate the resume upward against the ATS target, showing the climb.
+  const runImprove = async () => {
+    if (openId == null) return;
+    if (dirty) await saveDocs();
+    setTrajectory(null);
+    const t = toast.loading("Improving your resume toward a stronger ATS fit…");
+    const res = await improve.mutateAsync({ id: openId, target: 80 }).catch((e) => { toast.error(e.message, { id: t }); return null; });
+    if (!res) return;
+    if (!res.ok) return toast.error(res.reason, { id: t });
+    setResumeDoc(res.draftResume);
+    setTab("resume");
+    setDirty(false);
+    setTrajectory(res.trajectory);
+    setAts({ score: res.finalScore, matched: res.matched, missing: res.missing, coverage: 0, formatScore: 0, formatIssues: [] });
+    await utils.applications.list.invalidate();
+    toast.success(res.reachedTarget ? `Reached ${res.finalScore}% ATS fit.` : `Improved to ${res.finalScore}%. That is as far as your real experience honestly supports.`, { id: t });
   };
 
   const send = async () => {
@@ -232,6 +253,9 @@ export default function Applications() {
                   <button onClick={() => setTab("cover")} className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 ${tab === "cover" ? "bg-brand text-white" : "bg-slate-100 text-slate-500"}`}><PenTool className="w-3.5 h-3.5" /> Cover letter</button>
                   <div className="ml-auto flex items-center gap-1.5">
                     <button onClick={runAnalyze} disabled={analyze.isPending} className="btn-ghost h-8 px-3 text-xs">{analyze.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanSearch className="w-3.5 h-3.5" />} Analyze fit</button>
+                    {tab === "resume" && (
+                      <button onClick={runImprove} disabled={improve.isPending} className="btn-primary h-8 px-3 text-xs" title="Tailor, score, and revise until it hits a strong ATS fit, using only your real experience">{improve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Improve to target</button>
+                    )}
                     <button onClick={saveDocs} disabled={updateDraft.isPending || !dirty} className="btn-ghost h-8 px-3 text-xs">{updateDraft.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save</button>
                   </div>
                 </div>
@@ -264,6 +288,17 @@ export default function Applications() {
                         <div className="flex items-center gap-2"><ScanSearch className="w-4 h-4 text-brand" /><h4 className="font-bold text-xs text-slate-700">ATS fit</h4></div>
                         <div className={`text-2xl font-extrabold ${scoreColor(ats.score)}`}>{ats.score}%</div>
                       </div>
+                      {trajectory && trajectory.length > 1 && (
+                        <div className="flex items-center gap-1.5 mb-2 text-[11px] text-slate-500">
+                          <span className="font-semibold">Climb:</span>
+                          {trajectory.map((t, i) => (
+                            <span key={i} className="inline-flex items-center gap-1">
+                              <span className={scoreColor(t.score)} style={{ fontWeight: 700 }}>{t.score}%</span>
+                              {i < trajectory.length - 1 && <span className="text-slate-300">→</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="grid sm:grid-cols-2 gap-2 text-sm">
                         <div className="rounded-lg bg-emerald-50 p-2">
                           <div className="text-[11px] font-bold text-emerald-700 mb-1">Covered ({ats.coverage}%)</div>

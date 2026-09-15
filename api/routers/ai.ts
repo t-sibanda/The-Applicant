@@ -82,6 +82,7 @@ export const aiRouter = router({
           jobDescription: input.jobDescription,
           contact: contactBlock(gc),
           targeting: targetingNote(gc),
+          persona: gc.personaNote ?? undefined,
           style: input.companyStyle as CompanyStyle | undefined,
         }),
       );

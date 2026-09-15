@@ -23,6 +23,10 @@ export interface GenerationContext {
   targetRole: string | null;
   targetIndustry: string | null;
   resumeProfileId: number | null;
+  /** A short "who you are" note from persona + personality, if the user built
+   *  one. Woven into prompts so tailored writing reflects real strengths and
+   *  values, not a generic template. */
+  personaNote: string | null;
 }
 
 const DEFAULT_VOICE =
@@ -55,9 +59,31 @@ export async function getGenerationContext(userId: number): Promise<GenerationCo
     targetRole: active?.targetRole ?? null,
     targetIndustry: active?.targetIndustry ?? null,
     resumeProfileId: resume?.id ?? null,
+    personaNote: buildPersonaNote(resume?.personaJson, resume?.personalityJson),
   };
 
   void contactBits;
+}
+
+/**
+ * Distill the persona ("who is X") and personality results into one short line
+ * that a prompt can use to keep tailored writing authentic: real strengths and
+ * values, no fabricated traits. Returns null when nothing has been captured.
+ */
+function buildPersonaNote(personaJson: unknown, personalityJson: unknown): string | null {
+  const bits: string[] = [];
+  const persona = personaJson as { strengths?: string[]; values?: string[] } | null;
+  if (persona?.strengths?.length) bits.push(`Strengths: ${persona.strengths.slice(0, 5).join(", ")}`);
+  if (persona?.values?.length) bits.push(`Values: ${persona.values.slice(0, 4).join(", ")}`);
+
+  const pers = personalityJson as {
+    talents?: { top?: string[] };
+    disc?: { primary?: string };
+  } | null;
+  if (pers?.talents?.top?.length) bits.push(`Top talents: ${pers.talents.top.slice(0, 5).join(", ")}`);
+  if (pers?.disc?.primary) bits.push(`Working style: ${pers.disc.primary}`);
+
+  return bits.length ? bits.join(". ") : null;
 }
 
 /** A compact contact block for the top of a resume, if we have any details. */

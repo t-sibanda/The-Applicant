@@ -9,6 +9,7 @@ import { chatCompletion } from "../services/ai";
 import { tailorResumeMessages, coverLetterMessages, docEditMessages } from "../services/prompts";
 import { requireFeature, requireAIEntitlement, effectivePlan } from "../lib/entitlements";
 import { analyzeAts } from "../services/ats";
+import { getGenerationContext, contactBlock, targetingNote } from "../services/generation-context";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { TRPCError } from "@trpc/server";
 
@@ -445,6 +446,111 @@ export const applicationsRouter = router({
         formatScore: det.format.score,
         formatIssues: det.format.issues,
         seniority: det.seniority,
+      };
+    }),
+
+  // Improve to target: iteratively tailor the resume, score its ATS fit, and
+  // revise to honestly incorporate missing keywords, re-scoring each pass until
+  // it reaches a target or stops improving. Returns the score trajectory so the
+  // user watches it climb, and keeps the best version. Never fabricates.
+  improveToTarget: authedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        target: z.number().min(50).max(95).default(80),
+        maxPasses: z.number().min(1).max(4).default(3),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireAIEntitlement(ctx.user);
+      const db = getDb();
+      const app = (
+        await db
+          .select()
+          .from(applications)
+          .where(and(eq(applications.id, input.id), eq(applications.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const gc = await getGenerationContext(ctx.user.id);
+      if (!gc.hasResume) {
+        return { ok: false as const, reason: "Add your resume first so there is something to tailor." };
+      }
+      const jd = app.jobDescription?.trim() || "";
+      if (jd.length < 40) {
+        return { ok: false as const, reason: "This application has no job description to tailor against." };
+      }
+
+      const companyHint = app.companyName ?? undefined;
+      // Start from the current draft if present, else tailor once from base.
+      let best = app.draftResume?.trim() || "";
+      const trajectory: { pass: number; score: number }[] = [];
+
+      const scoreOf = (doc: string) => analyzeAts(doc, jd, companyHint);
+
+      if (!best) {
+        const first = await chatCompletion(
+          tailorResumeMessages({
+            baseResume: gc.baseResume,
+            voiceProfile: gc.voiceInstruction,
+            jobDescription: jd,
+            contact: contactBlock(gc),
+            targeting: targetingNote(gc),
+            persona: gc.personaNote ?? undefined,
+          }),
+          { maxTokens: 3000 },
+        );
+        best = first.success && first.content ? first.content : gc.baseResume;
+      }
+
+      let bestDet = scoreOf(best);
+      trajectory.push({ pass: 0, score: bestDet.baseScore });
+
+      for (let pass = 1; pass <= input.maxPasses; pass++) {
+        if (bestDet.baseScore >= input.target) break;
+        const missing = bestDet.keyword.missing.slice(0, 10);
+        if (missing.length === 0) break; // nothing left to honestly add
+
+        const res = await chatCompletion(
+          tailorResumeMessages({
+            baseResume: gc.baseResume,
+            voiceProfile: gc.voiceInstruction,
+            jobDescription: jd,
+            contact: contactBlock(gc),
+            targeting: targetingNote(gc),
+            persona: gc.personaNote ?? undefined,
+            emphasizeKeywords: missing,
+          }),
+          { maxTokens: 3000 },
+        );
+        if (!res.success || !res.content) break;
+        const det = scoreOf(res.content);
+        trajectory.push({ pass, score: det.baseScore });
+        // Keep the revision only if it genuinely improved the score.
+        if (det.baseScore > bestDet.baseScore) {
+          best = res.content;
+          bestDet = det;
+        } else {
+          break; // plateaued; stop rather than churn
+        }
+      }
+
+      // Persist the best version and its score to the application.
+      await db
+        .update(applications)
+        .set({ draftResume: best, atsScore: bestDet.baseScore })
+        .where(eq(applications.id, app.id));
+
+      return {
+        ok: true as const,
+        finalScore: bestDet.baseScore,
+        reachedTarget: bestDet.baseScore >= input.target,
+        target: input.target,
+        trajectory,
+        draftResume: best,
+        matched: bestDet.keyword.matched,
+        missing: bestDet.keyword.missing,
       };
     }),
 

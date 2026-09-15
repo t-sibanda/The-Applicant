@@ -105,6 +105,8 @@ export const jobsRouter = router({
         keywords: [...keywordList, ...profileSkills],
         company: input.company,
         location: input.location,
+        // Factor genuine resume-to-job overlap so ranking reflects real fit.
+        resumeText: resumeRow?.baseResumeText ?? null,
       };
       // When the user explicitly filters by company (or by their own keywords),
       // they've already narrowed intent, so don't also gate on profile-role

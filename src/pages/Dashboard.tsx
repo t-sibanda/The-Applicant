@@ -84,10 +84,13 @@ function StageCard(props: {
 export default function Dashboard() {
   const { user } = useAuth();
   const stats = trpc.dashboard.stats.useQuery();
+  const analytics = trpc.dashboard.analytics.useQuery();
+  const nudges = trpc.dashboard.nudges.useQuery();
   const profiles = trpc.profiles.list.useQuery();
   const resumes = trpc.resume.listProfiles.useQuery();
   const learning = trpc.learning.list.useQuery();
   const s = stats.data;
+  const a = analytics.data;
 
   const resume = resumes.data?.[0];
   const hasActiveProfile = (profiles.data ?? []).some((p) => p.isActive);
@@ -183,6 +186,64 @@ export default function Dashboard() {
           action={advanceAction}
         />
       </div>
+
+      {/* Nudges: real, actionable next steps derived from your records */}
+      {(nudges.data?.nudges.length ?? 0) > 0 && (
+        <div className="mb-6">
+          <h2 className="font-serif-display text-xl text-white mb-3">Do this next</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {nudges.data!.nudges.map((n) => (
+              <Link key={n.id} to="/applications" className="card p-4 card-hover block">
+                <div className="text-sm font-bold text-slate-800">{n.title}</div>
+                <div className="text-xs text-slate-500 mt-1">{n.detail}</div>
+                <div className="text-xs font-semibold text-brand mt-2 inline-flex items-center gap-1">{n.cta} <ChevronRight className="w-3.5 h-3.5" /></div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Outcomes: proof the process is working, all from real data */}
+      {a && a.sampleSize > 0 && (
+        <div className="mb-6">
+          <h2 className="font-serif-display text-xl text-white mb-3">Your outcomes</h2>
+          <div className="card p-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              <div>
+                <div className="text-2xl font-extrabold text-slate-900">{a.sent}</div>
+                <div className="text-xs text-slate-500">Applications sent</div>
+              </div>
+              <div>
+                <div className="text-2xl font-extrabold text-slate-900">{a.responseRate}%</div>
+                <div className="text-xs text-slate-500">Response rate</div>
+              </div>
+              <div>
+                <div className="text-2xl font-extrabold text-slate-900">{a.interviewRate}%</div>
+                <div className="text-xs text-slate-500">Interview rate</div>
+              </div>
+              <div>
+                <div className="text-2xl font-extrabold text-slate-900">{a.medianResponseDays ?? "—"}{a.medianResponseDays != null ? "d" : ""}</div>
+                <div className="text-xs text-slate-500">Median time to reply</div>
+              </div>
+            </div>
+
+            {/* Honest insight only when both groups have enough samples */}
+            {a.tailoring.tailoredCount >= 3 && a.tailoring.untailoredCount >= 3 && (
+              <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 mb-2">
+                Tailored applications got interviews at <span className="font-bold text-slate-800">{a.tailoring.tailoredInterviewRate}%</span> vs <span className="font-bold text-slate-800">{a.tailoring.untailoredInterviewRate}%</span> for untailored. Tailoring is worth the few minutes.
+              </div>
+            )}
+            {a.atsBands.high.total >= 3 && a.atsBands.low.total >= 3 && (
+              <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
+                High-ATS drafts (70%+) interviewed at <span className="font-bold text-slate-800">{a.atsBands.high.interviewRate}%</span>; low ones (under 50%) at <span className="font-bold text-slate-800">{a.atsBands.low.interviewRate}%</span>. Push each draft higher before sending.
+              </div>
+            )}
+            {a.sampleSize < 5 && (
+              <p className="text-[11px] text-slate-400 mt-1">Send a few more applications and these numbers get more meaningful.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats + match ring */}
       <div className="grid md:grid-cols-[1fr_auto] gap-4">
