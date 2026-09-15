@@ -86,6 +86,27 @@ export default function Jobs() {
   const [chatLog, setChatLog] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
 
+  // Networking helper: draft an outreach message to copy into LinkedIn.
+  const networking = trpc.ai.networkingMessage.useMutation();
+  const [netCompany, setNetCompany] = useState("");
+  const [netRole, setNetRole] = useState("");
+  const [netType, setNetType] = useState<"linkedin_connection" | "informational_interview" | "warm_intro">("linkedin_connection");
+  const [netDraft, setNetDraft] = useState("");
+
+  const draftOutreach = async () => {
+    if (!netCompany.trim() || !netRole.trim()) return toast.error("Add a company and role to reach out about");
+    const p = profiles.data?.find((x) => x.isActive);
+    const background = [p?.targetRole, p?.targetIndustry].filter(Boolean).join(", ") || "job seeker";
+    const res = await networking.mutateAsync({
+      targetCompany: netCompany.trim(),
+      targetRole: netRole.trim(),
+      background,
+      messageType: netType,
+    }).catch((e) => { toast.error(e.message); return null; });
+    if (res?.success && res.content) setNetDraft(res.content);
+    else if (res) toast.error(res.error ?? "Failed");
+  };
+
   const askMatch = async () => {
     if (!scan) return;
     const q = chatInput.trim();
@@ -434,24 +455,54 @@ export default function Jobs() {
                     <Link to="/applications" className="text-xs text-brand font-semibold hover:underline">View my applications</Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap border-t border-[var(--border)] pt-3">
-                  <Linkedin className="w-4 h-4 text-[#0a66c2] shrink-0" />
-                  <span className="text-xs text-slate-500 flex-1 min-w-[140px]">Open LinkedIn jobs tuned to your profile, then paste any you like above.</span>
-                  <button
-                    onClick={() => {
-                      const p = profiles.data?.find((x) => x.isActive);
-                      const kw = keywords || p?.targetRole || "";
-                      const loc = location || "";
-                      const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}${loc ? `&location=${encodeURIComponent(loc)}` : ""}`;
-                      window.open(url, "_blank", "noopener");
-                    }}
-                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#0a66c2] text-white text-xs font-semibold hover:brightness-110"
-                  >
-                    <Search className="w-3.5 h-3.5" /> Search LinkedIn
-                  </button>
-                  <Link to="/resume" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200">
-                    Import my LinkedIn
-                  </Link>
+                <div className="border-t border-[var(--border)] pt-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Linkedin className="w-4 h-4 text-[#0a66c2] shrink-0" />
+                    <span className="text-xs text-slate-500 flex-1 min-w-[140px]">Companion for LinkedIn: open a job there, paste it above to scan your fit, then apply on the channel we suggest.</span>
+                    <button
+                      onClick={() => {
+                        const p = profiles.data?.find((x) => x.isActive);
+                        const kw = keywords || p?.targetRole || "";
+                        const loc = location || "";
+                        const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}${loc ? `&location=${encodeURIComponent(loc)}` : ""}`;
+                        window.open(url, "_blank", "noopener");
+                      }}
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#0a66c2] text-white text-xs font-semibold hover:brightness-110"
+                    >
+                      <Search className="w-3.5 h-3.5" /> Search LinkedIn
+                    </button>
+                    <Link to="/setup" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200">
+                      Import my LinkedIn
+                    </Link>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    We do not read or change your LinkedIn account (their terms do not allow it). You stay in control: we analyze what you paste and draft messages you send yourself.
+                  </p>
+
+                  {/* Networking outreach draft (copy into LinkedIn manually) */}
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="text-xs font-bold text-slate-700 mb-2">Draft a networking message</div>
+                    <div className="grid sm:grid-cols-2 gap-2 mb-2">
+                      <input value={netCompany} onChange={(e) => setNetCompany(e.target.value)} placeholder="Company" className="input h-9" />
+                      <input value={netRole} onChange={(e) => setNetRole(e.target.value)} placeholder="Role / who you'd reach out to" className="input h-9" />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select value={netType} onChange={(e) => setNetType(e.target.value as never)} className="h-9 px-2 rounded-lg border border-[var(--border)] text-xs">
+                        <option value="linkedin_connection">Connection request</option>
+                        <option value="informational_interview">Informational interview</option>
+                        <option value="warm_intro">Ask for a warm intro</option>
+                      </select>
+                      <button onClick={draftOutreach} disabled={networking.isPending} className="btn-ghost h-9 px-3 text-xs">
+                        {networking.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Draft message
+                      </button>
+                    </div>
+                    {netDraft && (
+                      <div className="mt-2">
+                        <div className="rounded-lg bg-white border border-[var(--border)] p-2.5 text-xs text-slate-700 whitespace-pre-wrap">{netDraft}</div>
+                        <button onClick={() => { navigator.clipboard.writeText(netDraft); toast.success("Copied. Paste it into LinkedIn."); }} className="btn-ghost h-8 px-3 text-xs mt-1.5"><ClipboardPaste className="w-3.5 h-3.5" /> Copy</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -20,6 +20,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/cn";
 import { clearWorkingSession, useWorkingSession } from "@/lib/workingSession";
+import { NotificationBell } from "@/components/NotificationBell";
 import { toast } from "sonner";
 
 type NavItem = { to: string; label: string; icon: React.ElementType; end?: boolean };
@@ -179,7 +180,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 relative">
+        <div className="absolute top-5 right-6 z-30">
+          <NotificationBell />
+        </div>
         <div className="page-canvas min-h-[calc(100vh-3rem)] rounded-3xl p-6 md:p-8 animate-fade-in">
           {children}
         </div>

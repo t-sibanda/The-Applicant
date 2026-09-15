@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { getDb } from "../db/client";
-import { jobs, companies, scrapingLogs, resumeProfiles } from "../db/schema";
+import { jobs, companies, scrapingLogs, resumeProfiles, notifications } from "../db/schema";
 import { getActiveProfile } from "./profiles";
 import { searchAllSources } from "../services/job-sources";
 import { compAboveMedian, scoreCompany, rankByQuality } from "../services/quality";
@@ -15,6 +15,29 @@ import { requireAIEntitlement } from "../lib/entitlements";
 import { fetchJobText } from "../lib/fetch-job-text";
 import { JobStatus } from "../../shared/constants";
 import { TRPCError } from "@trpc/server";
+
+/**
+ * Apply-channel guidance. Aggregators (Indeed, LinkedIn, Adzuna, etc.) are
+ * convenient but the company's own careers page often gives a fairer read and
+ * avoids duplicate-applicant noise. This is a heuristic hint, not a rule.
+ */
+function applyChannelHint(sourceName?: string, sourceUrl?: string): {
+  channel: "company_page" | "job_board";
+  note: string;
+} {
+  const aggregators = ["linkedin", "indeed", "adzuna", "ziprecruiter", "glassdoor", "monster", "dice"];
+  const s = (sourceName ?? "").toLowerCase();
+  const isAggregator = aggregators.some((a) => s.includes(a)) || /linkedin|indeed/.test((sourceUrl ?? "").toLowerCase());
+  return isAggregator
+    ? {
+        channel: "company_page",
+        note: "Listed on a job board. If you can find this on the company's own careers page, applying there often gets a closer look.",
+      }
+    : {
+        channel: "job_board",
+        note: "Applying at the source here is fine. Tailor your resume to the posting first.",
+      };
+}
 
 export const jobsRouter = router({
   search: authedProcedure
@@ -183,6 +206,30 @@ export const jobsRouter = router({
             }),
           )
           .returning({ id: jobs.id });
+      }
+
+      // Notify on strong-fit fresh roles so the user acts on the best ones
+      // fast. Threshold is a real relevance score, not a fabricated guarantee.
+      const strong = fresh.filter((f) => f.relevance >= 80);
+      if (strong.length) {
+        const top = strong
+          .sort((a, b) => b.relevance - a.relevance)
+          .slice(0, 5)
+          .map((f) => ({
+            title: f.raw.title,
+            company: f.raw.companyName,
+            relevance: f.relevance,
+            url: f.raw.sourceUrl,
+            // Apply-channel guidance: prefer the company's own page when the
+            // source looks like an aggregator; otherwise the source is fine.
+            applyChannel: applyChannelHint(f.raw.sourceName, f.raw.sourceUrl),
+          }));
+        await db.insert(notifications).values({
+          userId: ctx.user.id,
+          type: "job_match",
+          payload: { count: strong.length, top },
+          read: false,
+        });
       }
 
       return {
