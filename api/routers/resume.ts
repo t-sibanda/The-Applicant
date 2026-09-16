@@ -241,7 +241,7 @@ export const resumeRouter = router({
           mode: input.mode,
           targetContext: input.targetContext,
         }),
-        { maxTokens: 3200 },
+        { maxTokens: 3200, task: "quality" },
       );
       if (!res.success || !res.content) return res;
 

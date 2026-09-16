@@ -95,25 +95,104 @@ async function callProvider(
 }
 
 /**
- * Provider-agnostic chat completion with automatic fallback.
+ * Task tier for routing:
+ * - "fast": high-volume, low-stakes calls (ATS scoring, quick scans,
+ *   summaries, extraction). Uses the primary (cheap/fast) provider first.
+ * - "quality": user-facing writing that is judged (resume tailoring, cover
+ *   letters, the editing chat). Uses the quality provider first when
+ *   configured, else the primary.
+ * Omitting the task keeps the original behavior (primary then fallback).
+ */
+export type AITask = "fast" | "quality";
+
+export interface ProviderConfig {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+function primaryProvider(): ProviderConfig | null {
+  return env.ai.apiKey
+    ? { apiUrl: env.ai.apiUrl, apiKey: env.ai.apiKey, model: env.ai.model }
+    : null;
+}
+
+function qualityProvider(): ProviderConfig | null {
+  return env.ai.qualityApiKey && env.ai.qualityApiUrl
+    ? { apiUrl: env.ai.qualityApiUrl, apiKey: env.ai.qualityApiKey, model: env.ai.qualityModel || env.ai.model }
+    : null;
+}
+
+function fallbackProvider(): ProviderConfig | null {
+  return env.ai.fallbackApiKey && env.ai.fallbackApiUrl
+    ? { apiUrl: env.ai.fallbackApiUrl, apiKey: env.ai.fallbackApiKey, model: env.ai.fallbackModel || env.ai.model }
+    : null;
+}
+
+/**
+ * Pure ordering + de-duplication of a provider chain for a task. Extracted so
+ * the routing logic is unit-testable without real env or network. Quality
+ * tasks lead with the quality provider (when set); everything leads with the
+ * primary. The fallback is always tried last. Duplicate providers (same
+ * url+key+model) are removed so we never call the same one twice per request.
+ */
+export function orderProviders(
+  task: AITask | undefined,
+  providers: { primary: ProviderConfig | null; quality: ProviderConfig | null; fallback: ProviderConfig | null },
+): ProviderConfig[] {
+  const { primary, quality, fallback } = providers;
+  const ordered: (ProviderConfig | null)[] =
+    task === "quality" ? [quality ?? primary, primary, fallback] : [primary, fallback];
+
+  const seen = new Set<string>();
+  const chain: ProviderConfig[] = [];
+  for (const p of ordered) {
+    if (!p) continue;
+    const key = `${p.apiUrl}|${p.apiKey}|${p.model}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    chain.push(p);
+  }
+  return chain;
+}
+
+function providerChain(task?: AITask): ProviderConfig[] {
+  return orderProviders(task, {
+    primary: primaryProvider(),
+    quality: qualityProvider(),
+    fallback: fallbackProvider(),
+  });
+}
+
+/**
+ * Provider-agnostic chat completion with task-based routing and failover.
  * Never throws: always returns a structured AIResult.
- * Model id and provider come from config so a deprecation is a config change.
  *
  * Options:
- * - temperature: defaults to 0.7 (writing tasks). Pass 0-0.2 for extraction,
- *   scoring, and classification so identical inputs score identically.
+ * - task: "fast" or "quality" (see AITask). Selects which provider leads.
+ * - model: override the model for the leading provider (rarely needed).
+ * - temperature: defaults to 0.7 (writing). Pass 0-0.2 for extraction/scoring.
  * - json: enable provider JSON mode for endpoints that parse the response.
  */
 export async function chatCompletion(
   messages: ChatMessage[],
-  opts: { model?: string; maxTokens?: number; temperature?: number; json?: boolean } = {},
+  opts: { task?: AITask; model?: string; maxTokens?: number; temperature?: number; json?: boolean } = {},
 ): Promise<AIResult> {
   // Groq free tier caps total tokens-per-minute (input + output) at ~8000.
   // Keep the output budget modest so prompt + completion stays under the limit.
   const maxTokens = opts.maxTokens ?? 3000;
   const temperature = opts.temperature ?? 0.7;
   const json = opts.json ?? false;
-  let lastError: string | null = null;
+
+  const chain = providerChain(opts.task);
+  if (chain.length === 0) {
+    return {
+      success: false,
+      content: null,
+      error:
+        "AI is not configured. Add AI_API_KEY (e.g. a Groq key) to enable AI features.",
+    };
+  }
 
   // Guard against oversized inputs: trim very long message content so the
   // input tokens + maxTokens stay under the free-tier TPM ceiling. ~4 chars ≈
@@ -121,56 +200,18 @@ export async function chatCompletion(
   const MAX_INPUT_CHARS = 16000;
   const trimmed = trimMessages(messages, MAX_INPUT_CHARS);
 
-  if (env.ai.apiKey) {
+  let lastError: string | null = null;
+  for (let i = 0; i < chain.length; i++) {
+    const p = chain[i];
+    // Honor an explicit model override only for the leading provider.
+    const model = i === 0 && opts.model ? opts.model : p.model;
     try {
-      const result = await callProvider(
-        env.ai.apiUrl,
-        env.ai.apiKey,
-        opts.model || env.ai.model,
-        trimmed,
-        maxTokens,
-        temperature,
-        json,
-      );
+      const result = await callProvider(p.apiUrl, p.apiKey, model, trimmed, maxTokens, temperature, json);
       if (result.success) return result;
-      // Keep the real provider error so it can be surfaced if all attempts fail.
       lastError = result.error;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
     }
-  }
-
-  if (env.ai.fallbackApiKey && env.ai.fallbackApiUrl) {
-    try {
-      const result = await callProvider(
-        env.ai.fallbackApiUrl,
-        env.ai.fallbackApiKey,
-        env.ai.fallbackModel || env.ai.model,
-        trimmed,
-        maxTokens,
-        temperature,
-        json,
-      );
-      if (result.success) return result;
-      return result;
-    } catch (err) {
-      return {
-        success: false,
-        content: null,
-        error: `AI fallback failed: ${
-          err instanceof Error ? err.message : "unknown"
-        }`,
-      };
-    }
-  }
-
-  if (!env.ai.apiKey) {
-    return {
-      success: false,
-      content: null,
-      error:
-        "AI is not configured. Add AI_API_KEY (e.g. a Groq key) to enable AI features.",
-    };
   }
 
   return {

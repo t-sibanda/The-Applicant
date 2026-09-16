@@ -27,15 +27,30 @@ function optional(name: string, fallback = ""): string {
 }
 
 const ai = {
+  // ── Primary provider (the "fast" tier): high-volume, low-stakes calls
+  // like ATS scoring, quick scans, and summaries. Defaults to Groq. ──
   apiUrl: optional(
     "AI_API_URL",
     "https://api.groq.com/openai/v1/chat/completions",
   ),
   apiKey: optional("AI_API_KEY"),
   model: optional("AI_MODEL", "openai/gpt-oss-120b"),
+
+  // ── Quality tier: user-facing writing (resume tailoring, cover letters,
+  // the editing chat) where output quality is judged. Optional; when not
+  // configured, quality tasks fall back to the primary provider. Any
+  // OpenAI-compatible provider works (OpenAI, Anthropic, Gemini, OpenRouter). ──
+  qualityApiUrl: optional("AI_QUALITY_API_URL"),
+  qualityApiKey: optional("AI_QUALITY_API_KEY"),
+  qualityModel: optional("AI_QUALITY_MODEL"),
+
+  // ── Fallback: tried when the chosen tier errors, so a single provider
+  // outage never takes AI down. Point it at an aggregator (e.g. OpenRouter)
+  // for the widest safety net. ──
   fallbackApiUrl: optional("AI_FALLBACK_API_URL"),
   fallbackApiKey: optional("AI_FALLBACK_API_KEY"),
   fallbackModel: optional("AI_FALLBACK_MODEL"),
+
   // Vision model for OCR / screenshot reading. Uses the same key/endpoint as
   // the primary provider unless overridden. Defaults to a Groq vision model.
   visionModel: optional("AI_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
@@ -99,6 +114,7 @@ export const env = {
 export function integrationStatus() {
   return {
     ai: !!env.ai.apiKey,
+    aiQuality: !!env.ai.qualityApiKey,
     aiFallback: !!env.ai.fallbackApiKey,
     storage:
       env.storage.provider === "s3"

@@ -93,8 +93,8 @@ export const applicationsRouter = router({
         await requireFeature(ctx.user, "semiApply", "Assisted apply");
         const voice = resume.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
         const [resumeRes, coverRes] = await Promise.all([
-          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd }), { maxTokens: 3000 }),
-          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd, companyName: input.companyName ?? "the company", jobTitle: input.jobTitle }), { maxTokens: 2000 }),
+          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd }), { maxTokens: 3000, task: "quality" }),
+          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jd, companyName: input.companyName ?? "the company", jobTitle: input.jobTitle }), { maxTokens: 2000, task: "quality" }),
         ]);
         draftResume = resumeRes.success ? resumeRes.content : null;
         draftCoverLetter = coverRes.success ? coverRes.content : null;
@@ -148,8 +148,8 @@ export const applicationsRouter = router({
       const voice = resume.voiceProfile || "Professional, results-driven, uses metrics and action verbs";
 
       const [resumeRes, coverRes] = await Promise.all([
-        chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription }), { maxTokens: 3000 }),
-        chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription, companyName: input.companyName, jobTitle: input.jobTitle }), { maxTokens: 2000 }),
+        chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription }), { maxTokens: 3000, task: "quality" }),
+        chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: input.jobDescription, companyName: input.companyName, jobTitle: input.jobTitle }), { maxTokens: 2000, task: "quality" }),
       ]);
 
       // If a draft already exists for this job, update it in place so the user
@@ -239,8 +239,8 @@ export const applicationsRouter = router({
       const jobTitle = input.jobTitle?.trim() || "this role";
 
       const [resumeRes, coverRes] = await Promise.all([
-        chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText }), { maxTokens: 3000 }),
-        chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText, companyName, jobTitle }), { maxTokens: 2000 }),
+        chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText }), { maxTokens: 3000, task: "quality" }),
+        chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: jobText, companyName, jobTitle }), { maxTokens: 2000, task: "quality" }),
       ]);
 
       const rows = await db
@@ -304,8 +304,8 @@ export const applicationsRouter = router({
       let prepared = 0;
       for (const j of candidates) {
         const [resumeRes, coverRes] = await Promise.all([
-          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description! }), { maxTokens: 3000 }),
-          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description!, companyName: j.title, jobTitle: j.title }), { maxTokens: 2000 }),
+          chatCompletion(tailorResumeMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description! }), { maxTokens: 3000, task: "quality" }),
+          chatCompletion(coverLetterMessages({ baseResume: resume.baseResumeText, voiceProfile: voice, jobDescription: j.description!, companyName: j.title, jobTitle: j.title }), { maxTokens: 2000, task: "quality" }),
         ]);
         await db.insert(applications).values({
           userId: ctx.user.id, profileId: profile.id, jobId: j.id,
@@ -499,7 +499,7 @@ export const applicationsRouter = router({
             targeting: targetingNote(gc),
             persona: gc.personaNote ?? undefined,
           }),
-          { maxTokens: 3000 },
+          { maxTokens: 3000, task: "quality" },
         );
         best = first.success && first.content ? first.content : gc.baseResume;
       }
@@ -522,7 +522,7 @@ export const applicationsRouter = router({
             persona: gc.personaNote ?? undefined,
             emphasizeKeywords: missing,
           }),
-          { maxTokens: 3000 },
+          { maxTokens: 3000, task: "quality" },
         );
         if (!res.success || !res.content) break;
         const det = scoreOf(res.content);
@@ -603,7 +603,7 @@ export const applicationsRouter = router({
           history: (input.history ?? []) as { role: "user" | "assistant"; content: string }[],
           userMessage: input.message,
         }),
-        { maxTokens: 3200, temperature: 0.4 },
+        { maxTokens: 3200, temperature: 0.4, task: "quality" },
       );
       if (!res.success || !res.content) return { success: false as const, reply: null, revisedDoc: null, error: res.error };
 

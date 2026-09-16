@@ -421,7 +421,7 @@ export const jobsRouter = router({
         { role: "user" as const, content: input.question },
       ];
 
-      return chatCompletion(messages, { maxTokens: 700 });
+      return chatCompletion(messages, { maxTokens: 700, task: "fast" });
     }),
 
   list: authedProcedure

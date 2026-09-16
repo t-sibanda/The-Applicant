@@ -85,6 +85,7 @@ export const aiRouter = router({
           persona: gc.personaNote ?? undefined,
           style: input.companyStyle as CompanyStyle | undefined,
         }),
+        { task: "quality" },
       );
     }),
 
@@ -111,6 +112,7 @@ export const aiRouter = router({
           jobTitle: input.jobTitle,
           style: input.companyStyle as CompanyStyle | undefined,
         }),
+        { task: "quality" },
       );
     }),
 
@@ -156,7 +158,7 @@ Return JSON:
 Return ONLY valid JSON.`,
         },
       ];
-      const aiRes = await chatCompletion(semanticMsgs, { maxTokens: 1500, temperature: 0.2, json: true });
+      const aiRes = await chatCompletion(semanticMsgs, { maxTokens: 1500, temperature: 0.2, json: true, task: "fast" });
       const semantic = aiRes.success && aiRes.content
         ? parseJsonFromAI<{ semanticScore: number; strengths: string[]; prioritizedFixes: string[] }>(aiRes.content)
         : null;

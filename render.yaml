@@ -23,11 +23,29 @@ services:
         sync: false
       - key: SESSION_SECRET
         sync: false
+      # Primary (fast) provider: scoring, scans, summaries. Defaults to Groq.
       - key: AI_API_URL
         value: https://api.groq.com/openai/v1/chat/completions
       - key: AI_MODEL
         value: openai/gpt-oss-120b
       - key: AI_API_KEY
+        sync: false
+      # Quality provider: resume/cover/edit writing. Optional; any
+      # OpenAI-compatible endpoint (OpenAI, Anthropic, Gemini, OpenRouter).
+      # When unset, quality tasks use the primary provider.
+      - key: AI_QUALITY_API_URL
+        sync: false
+      - key: AI_QUALITY_API_KEY
+        sync: false
+      - key: AI_QUALITY_MODEL
+        sync: false
+      # Fallback provider: tried when the chosen tier errors. Point at an
+      # aggregator like OpenRouter for the widest safety net.
+      - key: AI_FALLBACK_API_URL
+        sync: false
+      - key: AI_FALLBACK_API_KEY
+        sync: false
+      - key: AI_FALLBACK_MODEL
         sync: false
       - key: STORAGE_PROVIDER
         value: supabase
